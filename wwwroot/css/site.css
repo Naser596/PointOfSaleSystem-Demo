@@ -1,0 +1,594 @@
+:root {
+    /* Zephyr-compatible palette & Light Mode Defaults */
+    --primary-gradient: linear-gradient(135deg, #3459e6 0%, #2b4acb 100%);
+    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+    --card-shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03);
+    --border-radius-lg: 1rem;
+    --border-radius-md: 0.75rem;
+    --border-radius-sm: 0.5rem;
+
+    /* Theme Variables (Light Default) */
+    --bg-body: #f8f9fa;
+    --bg-surface: #ffffff;
+    --bg-surface-secondary: #f1f5f9;
+    --bg-input: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --navbar-bg: rgba(255, 255, 255, 0.9);
+    --navbar-backdrop: blur(10px);
+
+    /* Interactive Elements - Light */
+    --input-border: #cbd5e1;
+    --input-focus-ring: rgba(59, 130, 246, 0.25);
+}
+
+[data-bs-theme="dark"] {
+    /* Premium Dark Mode Palette */
+    --bg-body: #0b0f19;
+    /* Deep, rich dark blue-black */
+    --bg-surface: #151e2e;
+    /* Slightly lighter for cards */
+    --bg-surface-secondary: #1e293b;
+    /* Used for hovers, headers */
+    --bg-input: #0f172a;
+    /* Dark input background for depth */
+
+    --text-main: #f1f5f9;
+    /* Slate 100 - High contrast white/grey */
+    --text-muted: #94a3b8;
+    /* Slate 400 - Readable secondary text */
+
+    --border-color: #334155;
+    /* Slate 700 - Visible but subtle borders */
+    --input-border: #475569;
+    /* Slate 600 - Clearly defined input edges */
+
+    --navbar-bg: rgba(21, 30, 46, 0.95);
+    --navbar-backdrop: blur(12px);
+
+    /* Shadows adapted for dark mode */
+    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+
+    /* Bootstrap Overrides for Contrast */
+    --bs-body-bg: var(--bg-body);
+    --bs-body-color: var(--text-main);
+    --bs-border-color: var(--border-color);
+    --bs-link-color: #60a5fa;
+    --bs-link-hover-color: #93c5fd;
+}
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Navbar Polish */
+.navbar {
+    box-shadow: 0 1px 0 var(--border-color);
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    background: var(--navbar-bg) !important;
+    backdrop-filter: var(--navbar-backdrop);
+    border-bottom: 1px solid var(--border-color) !important;
+    transition: all 0.3s ease;
+}
+
+.navbar-brand {
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    font-size: 1.5rem;
+    color: var(--text-main) !important;
+}
+
+.nav-link {
+    font-weight: 500;
+    margin: 0 0.2rem;
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s;
+    color: var(--text-muted) !important;
+    padding: 0.5rem 1rem !important;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background-color: var(--bg-surface-secondary);
+    color: var(--bs-primary) !important;
+}
+
+[data-bs-theme="dark"] .nav-link:hover,
+[data-bs-theme="dark"] .nav-link.active {
+    color: #60a5fa !important;
+    /* Specific lighter blue for dark mode active state */
+    background: rgba(96, 165, 250, 0.1);
+}
+
+/* Buttons - Enhanced Visibility */
+.btn {
+    font-weight: 600;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--border-radius-sm);
+}
+
+/* Primary buttons in dark mode need to pop */
+[data-bs-theme="dark"] .btn-primary {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+[data-bs-theme="dark"] .btn-primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+}
+
+/* Outline buttons - Make borders visible */
+[data-bs-theme="dark"] .btn-outline-secondary,
+[data-bs-theme="dark"] .btn-outline-primary,
+[data-bs-theme="dark"] .btn-outline-danger,
+[data-bs-theme="dark"] .btn-outline-success {
+    border-width: 1.5px;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    border-color: #64748b;
+    color: #f8fafc;
+    /* Pure white/slate */
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    background-color: #334155;
+    border-color: #94a3b8;
+    color: white;
+}
+
+/* Form Controls / Inputs - Explicit Visibility */
+.form-control,
+.form-select {
+    background-color: var(--bg-input);
+    border: 1px solid var(--input-border);
+    color: var(--text-main);
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--border-radius-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--bg-input);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    color: var(--text-main);
+}
+
+/* Placeholder contrast fix */
+[data-bs-theme="dark"] ::placeholder {
+    color: #64748b !important;
+    opacity: 1;
+}
+
+/* Input Group Text */
+.input-group-text {
+    background-color: var(--bg-surface-secondary);
+    border-color: var(--input-border);
+    color: var(--text-muted);
+}
+
+/* Cards & Containers */
+.card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--card-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--bg-surface);
+    overflow: hidden;
+    color: var(--text-main);
+}
+
+.card-header {
+    background: var(--bg-surface-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 700;
+    padding: 1rem 1.5rem;
+    color: var(--text-main);
+}
+
+.card-footer {
+    background: var(--bg-surface-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Stat Cards (Dashboard) - Refined */
+.stat-card {
+    position: relative;
+    padding: 1.5rem;
+    border-radius: var(--border-radius-lg);
+    color: white;
+    overflow: hidden;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    /* Fallback */
+}
+
+.stat-card .stat-value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card .stat-label {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.75rem;
+    opacity: 0.9;
+    font-weight: 600;
+}
+
+/* Specific gradients that look good in both modes but especially dark */
+.stat-card.primary {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.stat-card.success {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.stat-card.warning {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.stat-card.info {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+}
+
+.stat-card.secondary {
+    background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+}
+
+.stat-card .stat-icon {
+    position: absolute;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 3.5rem;
+    opacity: 0.15;
+    color: white;
+}
+
+/* Product Grid (POS) */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.25rem;
+}
+
+.product-card {
+    background: var(--bg-surface);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--card-shadow);
+    height: 100%;
+    color: var(--text-main);
+}
+
+.product-card:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-4px);
+    box-shadow: var(--card-shadow-hover);
+    background: var(--bg-surface-secondary);
+}
+
+.product-name {
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 2.5em;
+    /* fixed height for alignment */
+}
+
+.product-price {
+    color: var(--bs-primary);
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+/* Cart Panel */
+.cart-container {
+    background: var(--bg-surface);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 90px;
+    color: var(--text-main);
+}
+
+.cart-header {
+    padding: 1.25rem;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface-secondary);
+    border-top-left-radius: var(--border-radius-lg);
+    border-top-right-radius: var(--border-radius-lg);
+}
+
+.cart-items {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.cart-item {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.1s;
+    background: var(--bg-surface);
+}
+
+/* Fix visibility of + / - buttons in POS Cart (Dark Mode) */
+[data-bs-theme="dark"] .cart-items .btn-outline-secondary {
+    color: #38bdf8 !important;
+    /* Bright Sky Blue for symbols */
+    border-color: #38bdf8 !important;
+    background: transparent;
+    font-weight: 900;
+    /* Make symbols thicker */
+    font-size: 1.1rem;
+}
+
+[data-bs-theme="dark"] .cart-items .btn-outline-secondary:hover {
+    background: #38bdf8 !important;
+    color: #000000 !important;
+    /* Black text on bright background for max contrast */
+    border-color: #38bdf8 !important;
+}
+
+/* Ensure 'Delete' (trash) icon is visible in dark mode */
+[data-bs-theme="dark"] .text-danger {
+    color: #f87171 !important;
+    /* Light Red/Pink instead of dark red */
+}
+
+[data-bs-theme="dark"] .btn-link.text-danger:hover {
+    color: #ef4444 !important;
+    /* Slightly darker on hover */
+}
+
+.cart-item:hover {
+    background: var(--bg-surface-secondary);
+}
+
+.cart-total {
+    background: var(--bg-surface-secondary);
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    border-bottom-left-radius: var(--border-radius-lg);
+    border-bottom-right-radius: var(--border-radius-lg);
+}
+
+.cart-total .total-label {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.cart-total .total-value {
+    font-weight: 800;
+    font-size: 1.75rem;
+    color: var(--text-main);
+}
+
+/* Tables */
+.table {
+    --bs-table-color: var(--text-main);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--border-color);
+    --bs-table-hover-bg: var(--bg-surface-secondary);
+}
+
+.table> :not(caption)>*>* {
+    background-color: transparent;
+    border-bottom-color: var(--border-color);
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+}
+
+.table tr:hover td {
+    background-color: var(--bg-surface-secondary);
+    color: var(--text-main);
+}
+
+/* Modals */
+.modal-content {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header,
+.modal-footer {
+    border-color: var(--border-color);
+    background-color: var(--bg-surface);
+    /* Keep consistent */
+}
+
+/* Dropdowns */
+.dropdown-menu {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--card-shadow-hover);
+}
+
+.dropdown-item {
+    color: var(--text-main);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: var(--bs-primary);
+    color: white;
+}
+
+/* Toasts */
+.toast-container {
+    position: fixed;
+    top: 90px;
+    right: 20px;
+    z-index: 1055;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15);
+    border-radius: var(--border-radius-md);
+    margin-bottom: 0.75rem;
+    color: var(--text-main);
+}
+
+.toast-header {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    background: var(--bg-surface);
+    border-top: 2px solid var(--border-color);
+    padding: 2rem 0;
+    color: #0f172a;
+}
+
+/* Scrollbar Polish for Dark Mode */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-body);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* Login Page Demo Text - Emphasized in Dark Mode */
+.demo-credentials {
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+}
+
+[data-bs-theme="dark"] .demo-credentials {
+    color: #38bdf8;
+    /* Bright Sky Blue */
+    background: rgba(56, 189, 248, 0.15);
+    padding: 0.35rem 1rem;
+    border-radius: 50px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-weight: 600;
+    display: inline-block;
+    letter-spacing: 0.3px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
+}
+
+/* Premium Report Button */
+.btn-report {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 1.75rem 1.5rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3), 0 2px 4px -1px rgba(16, 185, 129, 0.15);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.3px;
+}
+
+.btn-report:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4), 0 4px 6px -2px rgba(16, 185, 129, 0.2);
+    color: white;
+    background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+}
+
+.btn-report:active {
+    transform: translateY(0);
+}
+
+/* Global Loading Spinner */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+[data-bs-theme="dark"] #loadingOverlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.spinner-custom {
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--bs-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    margin-top: 1rem;
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+}

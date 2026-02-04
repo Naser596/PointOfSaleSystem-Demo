@@ -1,0 +1,129 @@
+@model Sale
+@{
+    Layout = null;
+    var subtotal = Model.TotalAmount; // Assuming inclusive for now, or 0 tax
+    var tax = 0m;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Receipt #@Model.SaleNumber</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            width: 300px; /* Typical thermal printer width */
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .store-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .meta {
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+        .items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+        .items th {
+            text-align: left;
+            border-bottom: 1px solid #000;
+        }
+        .items td {
+            padding: 5px 0;
+        }
+        .totals {
+            text-align: right;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8rem;
+            border-top: 2px dashed #000;
+            padding-top: 10px;
+        }
+        .btn-print {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: #000;
+            color: #fff;
+            text-align: center;
+            text-decoration: none;
+            margin-top: 20px;
+            font-family: sans-serif;
+            cursor: pointer;
+            border: none;
+        }
+        @@media print {
+            .btn-print { display: none; }
+            body { width: 100%; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="store-name">MiniPOS App</div>
+        <div class="meta">Date: @Model.SaleDate.ToString("g")</div>
+        <div class="meta">Receipt #: @Model.SaleNumber</div>
+    </div>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th style="width: 50%">Item</th>
+                <th style="width: 20%">Qty</th>
+                <th style="width: 30%; text-align: right;">Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.SaleItems)
+            {
+                <tr>
+                    <td>@item.Product.Name</td>
+                    <td>@item.Quantity</td>
+                    <td style="text-align: right;">@((item.UnitPrice * item.Quantity).ToString("N2"))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div><strong>Total: $@Model.TotalAmount.ToString("N2")</strong></div>
+        <div style="font-size: 0.8rem; margin-top: 5px;">Method: @Model.PaymentMethod</div>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+        <p>Please come again.</p>
+    </div>
+
+    <button class="btn-print" onclick="window.print()">Print Receipt</button>
+
+    <script>
+        // Check for clearCart flag from Card Terminal redirect
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('clearCart')) {
+            localStorage.removeItem('pos_cart_v1');
+            console.log('Cart cleared after successful card payment');
+        }
+    </script>
+</body>
+</html>

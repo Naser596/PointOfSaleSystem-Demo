@@ -1,0 +1,94 @@
+@model Sale
+@{
+    ViewData["Title"] = "Sale Details";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-receipt me-3"></i>Sale Details</h1>
+    <p>View sale transaction details</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-list me-2"></i>Items Purchased
+            </div>
+            <div class="card-body p-0">
+                @if (Model.SaleItems != null && Model.SaleItems.Any())
+                {
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Quantity</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.SaleItems)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light rounded-circle p-2 me-3">
+                                                <i class="fas fa-cube text-primary"></i>
+                                            </div>
+                                            <strong>@item.Product?.Name</strong>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">@item.Quantity</td>
+                                    <td class="text-end">$@item.UnitPrice.ToString("N2")</td>
+                                    <td class="text-end fw-bold">$@item.TotalPrice.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                <td class="text-end"><span class="h4 text-success mb-0">$@Model.TotalAmount.ToString("N2")</span></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                }
+                else
+                {
+                    <div class="text-center py-4 text-muted">
+                        <p>No items in this sale</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Sale Information
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="text-muted small">SALE NUMBER</div>
+                    <div class="h5">@Model.SaleNumber</div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted small">DATE</div>
+                    <div>@Model.SaleDate.ToString("MMMM dd, yyyy")</div>
+                    <div class="text-muted small">@Model.SaleDate.ToString("HH:mm:ss")</div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted small">STATUS</div>
+                    <div><span class="badge bg-success">@Model.Status</span></div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted small">TOTAL AMOUNT</div>
+                    <div class="h3 text-success">$@Model.TotalAmount.ToString("N2")</div>
+                </div>
+                <hr />
+                <a href="/Sales" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Sales
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

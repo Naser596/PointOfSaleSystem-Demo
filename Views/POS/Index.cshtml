@@ -1,0 +1,576 @@
+@model List<Product>
+@{
+    ViewData["Title"] = "POS Terminal";
+}
+
+@Html.AntiForgeryToken()
+
+<div class="page-header">
+    <h1><i class="fas fa-cash-register me-3"></i>POS Terminal</h1>
+    <p>Select products and complete the sale</p>
+</div>
+
+<div class="row">
+    <!-- Products Grid -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <span class="me-3"><i class="fas fa-box me-2"></i>Available Products</span>
+                    <a href="/Sales/ExportDailyReport" class="btn-report text-white text-decoration-none shadow-sm py-1 px-3" style="font-size: 0.9rem;" title="Daily Report">
+                        <i class="fas fa-file-excel me-2"></i>Daily Report
+                    </a>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="position-relative">
+                        <input type="text" id="customerSearch" class="form-control form-control-sm" placeholder="Select Customer (Optional)..." style="width: 200px;">
+                        <input type="hidden" id="selectedCustomerId">
+                        <div id="customerResults" class="list-group position-absolute w-100 shadow-sm" style="display:none; z-index: 1000; top: 100%;"></div>
+                    </div>
+                    <input type="text" id="searchProduct" class="form-control form-control-sm w-auto" placeholder="Search products..." />
+                </div>
+            </div>
+            <div class="card-body">
+                @if (Model != null && Model.Any())
+                {
+                    <div class="product-grid" id="productGrid">
+                        @foreach (var product in Model)
+                        {
+                            <div class="product-card @(product.Stock <= 0 ? "opacity-50" : "")" 
+                                 data-id="@product.Id" data-name="@product.Name" data-price="@product.Price" data-stock="@product.Stock" 
+                                 style="@(product.Stock <= 0 ? "pointer-events: none; background-color: #f8f9fa;" : "")"
+                                 onclick="addToCart(@product.Id, '@product.Name', @product.Price, @product.Stock)">
+                                <div class="mb-2" style="height: 120px; overflow: hidden; border-radius: 8px;">
+                                    @if (!string.IsNullOrEmpty(product.ImagePath))
+                                    {
+                                        <img src="@product.ImagePath" class="w-100 h-100" style="object-fit: cover;" alt="@product.Name" />
+                                    }
+                                    else
+                                    {
+                                        <div class="bg-light w-100 h-100 d-flex align-items-center justify-content-center">
+                                            <i class="fas fa-cube fa-3x text-primary"></i>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="product-name">@product.Name</div>
+                                <div class="product-price">$@product.Price.ToString("N2")</div>
+                                <div class="product-stock">
+                                    @if(product.Stock > 0) {
+                                        <span>@product.Stock in stock</span>
+                                    } else {
+                                        <span class="text-danger fw-bold">Out of Stock</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-box-open fa-3x mb-3"></i>
+                        <p>No products available. Add products first!</p>
+                        <a href="/Products/Create" class="btn btn-success">Add Product</a>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart -->
+    <div class="col-lg-4">
+        <div class="cart-container">
+            <div class="cart-header">
+                <i class="fas fa-shopping-cart me-2"></i>Current Sale
+            </div>
+            <div class="cart-items" id="cartItems">
+                <div class="text-center py-4 text-muted" id="emptyCart">
+                    <i class="fas fa-shopping-basket fa-2x mb-2"></i>
+                    <p class="mb-0">Cart is empty</p>
+                </div>
+            </div>
+            <div class="cart-total">
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="total-label">TOTAL</span>
+                    <span class="total-value" id="cartTotal">$0.00</span>
+                </div>
+                <button class="btn btn-success w-100 mb-2" id="completeSaleBtn" onclick="showPaymentModal()" disabled>
+                    <i class="fas fa-check me-2"></i>Complete Sale
+                </button>
+                <button class="btn btn-outline-danger w-100" onclick="clearCart()">
+                    <i class="fas fa-trash me-2"></i>Clear Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-credit-card me-2"></i>Select Payment Method</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4 p-3 rounded" style="background: var(--bg-surface-secondary);">
+                    <p class="text-muted mb-1 small">Total Amount</p>
+                    <h2 id="paymentTotal" class="fw-bold mb-0" style="color: var(--text-main); font-size: 2.5rem;"></h2>
+                </div>
+                <div class="d-grid gap-3">
+                    <button class="btn btn-outline-primary btn-lg text-start" onclick="processPayment('Cash')">
+                        <i class="fas fa-money-bill-wave me-3"></i>Cash
+                    </button>
+                    <button class="btn btn-outline-info btn-lg text-start" onclick="processPayment('Card')">
+                        <i class="fas fa-credit-card me-3"></i>Card
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-check-circle fa-5x text-success"></i>
+                </div>
+                <h3 class="mb-2">Sale Completed!</h3>
+                <p class="text-muted mb-3" id="saleMessage"></p>
+                <button class="btn btn-secondary mb-2" onclick="printLastReceipt()">
+                    <i class="fas fa-print me-2"></i>Print Receipt
+                </button>
+                <div class="d-grid">
+                     <button class="btn btn-success" onclick="location.reload()">New Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let cart = [];
+    let paymentModal;
+    let successModal;
+    let lastSaleId = 0;
+    const CART_KEY = 'pos_cart_v1';
+
+
+    function loadCart() {
+        const savedCart = localStorage.getItem(CART_KEY);
+        if (savedCart) {
+            try {
+                cart = JSON.parse(savedCart);
+                updateCartDisplay();
+            } catch (e) {
+                console.error("Error loading cart", e);
+                cart = [];
+            }
+        }
+    }
+
+    function saveCart() {
+        localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    }
+
+    function printLastReceipt() {
+        if(lastSaleId > 0) {
+            window.open('/Sales/Receipt/' + lastSaleId, '_blank');
+        }
+    }
+
+    function addToCart(id, name, price, stock) {
+        if (stock <= 0) {
+            showToast('Item is out of stock!', 'error');
+            return;
+        }
+
+        const existingItem = cart.find(item => item.id === id);
+        
+        if (existingItem) {
+            if (existingItem.quantity >= stock) {
+                showToast('Cannot add more. Stock limit reached!', 'warning');
+                return;
+            }
+            existingItem.quantity++;
+        } else {
+            cart.push({ id, name, price, quantity: 1, stock });
+        }
+        
+        saveCart();
+        updateCartDisplay();
+    }
+
+    function removeFromCart(id) {
+        cart = cart.filter(item => item.id !== id);
+        saveCart();
+        updateCartDisplay();
+    }
+
+    function updateQuantity(id, change) {
+        const item = cart.find(item => item.id === id);
+        if (item) {
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                removeFromCart(id);
+                return; // already saved in remove
+            } else if (item.quantity > item.stock) {
+                item.quantity = item.stock;
+                showToast('Cannot add more. Stock limit reached!', 'warning');
+            }
+        }
+        saveCart();
+        updateCartDisplay();
+    }
+
+    function clearCart() {
+        if(confirm('Are you sure you want to clear the cart?')) {
+            cart = [];
+            saveCart();
+            updateCartDisplay();
+        }
+    }
+
+    function updateCartDisplay() {
+        const cartItems = document.getElementById('cartItems');
+        const emptyCart = document.getElementById('emptyCart');
+        const cartTotal = document.getElementById('cartTotal');
+        const completeSaleBtn = document.getElementById('completeSaleBtn');
+        const paymentTotal = document.getElementById('paymentTotal');
+
+        if (cart.length === 0) {
+            cartItems.innerHTML = `
+                <div class="text-center py-4 text-muted" id="emptyCart">
+                    <i class="fas fa-shopping-basket fa-2x mb-2"></i>
+                    <p class="mb-0">Cart is empty</p>
+                </div>
+            `;
+            cartTotal.innerText = '$0.00';
+            if(paymentTotal) paymentTotal.innerText = '$0.00';
+            completeSaleBtn.disabled = true;
+            return;
+        }
+
+        // Hide empty message (by not appending it or explicitly hiding if it's there)
+        // Re-render all items
+        cartItems.innerHTML = '';
+        
+        let total = 0;
+
+        cart.forEach(item => {
+            const itemTotal = item.price * item.quantity;
+            total += itemTotal;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'card mb-2 border-0 shadow-sm';
+            itemDiv.innerHTML = `
+                <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                    <div style="flex: 1;">
+                        <div class="fw-bold text-truncate" style="max-width: 150px;">${item.name}</div>
+                        <div class="text-muted small">$${item.price.toFixed(2)} x ${item.quantity}</div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="btn-group btn-group-sm me-2">
+                            <button class="btn btn-secondary border-0" onclick="updateQuantity(${item.id}, -1)">-</button>
+                            <span class="btn btn-light disabled text-dark border-top border-bottom" style="width: 40px;">${item.quantity}</span>
+                            <button class="btn btn-secondary border-0" onclick="updateQuantity(${item.id}, 1)">+</button>
+                        </div>
+                        <div class="fw-bold me-3" style="width: 60px; text-align: right;">$${itemTotal.toFixed(2)}</div>
+                        <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.id})">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            cartItems.appendChild(itemDiv);
+        });
+
+        cartTotal.innerText = '$' + total.toFixed(2);
+        if(paymentTotal) paymentTotal.innerText = '$' + total.toFixed(2);
+        completeSaleBtn.disabled = false;
+    }
+// ...
+    function showPaymentModal() {
+        if (cart.length === 0) {
+            showToast('Cart is empty!', 'warning');
+            return;
+        }
+        paymentModal.show();
+    }
+
+
+    let customerSearch;
+    let customerResults;
+    let selectedCustomerId;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        
+        // Initialize Customer Search Elements
+        customerSearch = document.getElementById('customerSearch');
+        customerResults = document.getElementById('customerResults');
+        selectedCustomerId = document.getElementById('selectedCustomerId');
+
+        if(customerSearch) {
+            customerSearch.addEventListener('input', function(e) {
+                const query = e.target.value;
+                if(query.length < 2) {
+                    customerResults.style.display = 'none';
+                    return;
+                }
+
+                fetch(`/Customers/Search?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        customerResults.innerHTML = '';
+                        if(data.length > 0) {
+                            data.forEach(c => {
+                                const item = document.createElement('a');
+                                item.href = '#';
+                                item.className = 'list-group-item list-group-item-action small';
+                                item.textContent = c.text;
+                                item.onclick = (e) => {
+                                    e.preventDefault();
+                                    selectCustomer(c.id, c.text);
+                                };
+                                customerResults.appendChild(item);
+                            });
+                            customerResults.style.display = 'block';
+                        } else {
+                            customerResults.style.display = 'none';
+                        }
+                    });
+            });
+
+            // Close search results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!customerSearch.contains(e.target) && !customerResults.contains(e.target)) {
+                    customerResults.style.display = 'none';
+                }
+            });
+        }
+        
+        loadCart();
+    });
+
+    function selectCustomer(id, name) {
+        selectedCustomerId.value = id;
+        customerSearch.value = name;
+        customerResults.style.display = 'none';
+        
+        // Visual feedback
+        customerSearch.classList.add('is-valid');
+        customerSearch.disabled = true;
+        
+        // Add clear button logic if needed, or simple reset:
+        const clearBtn = document.createElement('span');
+        clearBtn.innerHTML = '<i class="fas fa-times text-danger ms-2" style="cursor:pointer"></i>';
+        clearBtn.onclick = () => {
+             selectedCustomerId.value = '';
+             customerSearch.value = '';
+             customerSearch.classList.remove('is-valid');
+             customerSearch.disabled = false;
+             clearBtn.remove();
+        };
+        customerSearch.parentNode.appendChild(clearBtn);
+    }
+
+    // Fallback for showLoading/hideLoading if site.js fails or is cached
+    if (typeof showLoading === 'undefined') {
+        window.showLoading = function(text) {
+             console.log('Fallback showLoading:', text);
+             const overlay = document.getElementById('loadingOverlay');
+             if(overlay) { 
+                 overlay.style.display = 'flex';
+                 const txt = overlay.querySelector('.loading-text');
+                 if(txt) txt.textContent = text;
+             }
+        };
+    }
+    if (typeof hideLoading === 'undefined') {
+        window.hideLoading = function() {
+             const overlay = document.getElementById('loadingOverlay');
+             if(overlay) overlay.style.display = 'none';
+        };
+    }
+
+    // Update ProcessPayment to include CustomerId
+    function processPayment(method) {
+        try {
+            // Validate stock logic again client-side just in case
+            for (let item of cart) {
+                if (item.quantity > item.stock) {
+                    showToast(`Insufficient stock for ${item.name}. Available: ${item.stock}`, 'error');
+                    return;
+                }
+            }
+
+            if(paymentModal) paymentModal.hide();
+            
+            const customerId = (selectedCustomerId && selectedCustomerId.value) ? parseInt(selectedCustomerId.value) : null;
+            const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            const token = tokenElement ? tokenElement.value : '';
+
+            if (method === 'Card') {
+                // CARD FLOW: Post to CardTerminal
+                const cardForm = document.getElementById('cardTerminalForm');
+                const cardInput = document.getElementById('cardCartJson');
+                
+                if(!cardForm || !cardInput) {
+                     showToast('Card terminal form missing', 'error');
+                     return;
+                }
+
+                // Map cart to SaleItemRequest format match
+                const requestItems = cart.map(item => ({
+                    ProductId: item.id,
+                    Quantity: item.quantity
+                }));
+                
+                cardInput.value = JSON.stringify(requestItems);
+                cardForm.submit();
+            } 
+            else {
+                // CASH FLOW
+                const saleRequest = {
+                    Items: cart.map(item => ({
+                        ProductId: item.id,
+                        Quantity: item.quantity
+                    })),
+                    PaymentMethod: method,
+                    CustomerId: customerId
+                };
+
+                showLoading('Processing Sale...');
+
+                fetch('/POS/ProcessSale', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify(saleRequest)
+                })
+                .then(async response => {
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Server Error (${response.status}): ${errorText.substring(0, 100)}...`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        lastSaleId = data.saleId;
+                        document.getElementById('saleMessage').textContent = `Sale #${data.saleNumber} completed successfully via ${method}.`;
+                        if(successModal) successModal.show();
+                        
+                        // Clear cart on success
+                        cart = []; 
+                        saveCart();
+                        updateCartDisplay();
+                        
+                        // Reset Customer
+                        if(selectedCustomerId && selectedCustomerId.value) {
+                             selectedCustomerId.value = '';
+                             if(customerSearch) {
+                                 customerSearch.value = '';
+                                 customerSearch.disabled = false;
+                                 customerSearch.classList.remove('is-valid');
+                                 const clearBtn = customerSearch.parentNode.querySelector('.fa-times');
+                                 if(clearBtn) clearBtn.remove();
+                             }
+                        }
+                    } else {
+                        console.error('Server returned failure:', data);
+                        showToast('Sale Failed: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Transaction Error:', error);
+                    showToast('An error occurred: ' + error.message, 'error');
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Client Error: ' + err.message, 'error');
+        }
+    }
+
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', function(e) {
+        // F1: Focus Search
+        if (e.key === 'F1') {
+            e.preventDefault();
+            document.getElementById('searchProduct').focus();
+        }
+        // F2: Cash Payment
+        else if (e.key === 'F2') {
+            e.preventDefault();
+            if(!paymentModal._isShown && cart.length > 0) {
+                showPaymentModal();
+            } else if (paymentModal._isShown) {
+                processPayment('Cash');
+            }
+        }
+        // F3: Card Payment
+        else if (e.key === 'F3') {
+            e.preventDefault();
+            if(!paymentModal._isShown && cart.length > 0) {
+                showPaymentModal();
+            } else if (paymentModal._isShown) {
+                processPayment('Card');
+            }
+        }
+        // F4: Clear Cart
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            clearCart();
+        }
+        // Esc: Close Modals
+        else if (e.key === 'Escape') {
+             if (paymentModal._isShown) paymentModal.hide();
+             if (successModal._isShown) successModal.hide();
+        }
+        // Enter: Confirm Payment (only if modal is open)
+        else if (e.key === 'Enter') {
+            if (paymentModal._isShown) {
+                e.preventDefault();
+                processPayment('Cash'); // Default to Cash on Enter for speed
+            }
+        }
+    });
+
+    // Search functionality
+    document.getElementById('searchProduct').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const products = document.querySelectorAll('.product-card');
+        
+        products.forEach(product => {
+            const name = product.dataset.name.toLowerCase();
+            if (name.includes(searchTerm)) {
+                product.style.display = 'block';
+            } else {
+                product.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+<!-- Hidden Form to submit to CardTerminal -->
+<form id="cardTerminalForm" method="post" action="/POS/CardTerminal" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="cartJson" id="cardCartJson" />
+</form>
+}

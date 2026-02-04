@@ -1,0 +1,62 @@
+@model Product
+@{
+    ViewData["Title"] = "Product Details";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-cube me-3"></i>Product Details</h1>
+    <p>View product information</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="mb-3">
+                        @if (!string.IsNullOrEmpty(Model.ImagePath))
+                        {
+                            <img src="@Model.ImagePath" 
+                                 alt="@Model.Name" 
+                                 class="shadow" 
+                                 style="max-width: 350px; max-height: 350px; object-fit: cover; border: 5px solid #e9ecef; border-radius: 20px;" />
+                        }
+                        else
+                        {
+                            <div class="bg-light d-inline-flex align-items-center justify-content-center" 
+                                 style="width: 280px; height: 270px; border: 4px dashed #dee2e6; border-radius: 20px;">
+                                <i class="fas fa-image fa-4x text-muted"></i>
+                            </div>
+                        }
+                    </div>
+                    <h3>@Model.Name</h3>
+                    <p class="text-muted">@Model.Description</p>
+                </div>
+                <hr />
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="text-muted small">PRICE</div>
+                        <div class="h4 text-success mb-0">$@Model.Price.ToString("N2")</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted small">STOCK</div>
+                        <div class="h4 mb-0">@Model.Stock</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted small">CREATED</div>
+                        <div class="h6 mb-0">@Model.CreatedDate.ToString("MMM dd")</div>
+                    </div>
+                </div>
+                <hr />
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="/Products/Edit/@Model.Id" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>Edit
+                    </a>
+                    <a href="/Products" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

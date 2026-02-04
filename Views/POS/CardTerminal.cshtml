@@ -1,0 +1,81 @@
+@model WebApplication3.Models.CardTerminalViewModel
+
+@{
+    ViewData["Title"] = "Card Terminal";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-header bg-dark text-white text-center py-4 rounded-top-4">
+                    <h4 class="mb-0"><i class="fas fa-credit-card me-2"></i>Secure Payment</h4>
+                    <p class="text-white-50 mb-0 small mt-1">Mock Terminal - No Real Charge</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <h5 class="text-muted mb-2">Total Amount</h5>
+                        <h2 class="display-4 fw-bold text-primary">$@Model.TotalAmount.ToString("N2")</h2>
+                        <span class="badge bg-light text-dark border">@Model.ItemCount Items</span>
+                    </div>
+
+                    <form asp-action="ProcessCardSale" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="CartJson" />
+                        
+                        <!-- Card Simulation -->
+                        <div class="mb-3">
+                            <label asp-for="CardHolder" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-user text-muted"></i></span>
+                                <input asp-for="CardHolder" class="form-control border-start-0 ps-0" placeholder="JOHN DOE" />
+                            </div>
+                            <span asp-validation-for="CardHolder" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="CardNumber" class="form-label"></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="far fa-credit-card text-muted"></i></span>
+                                <input asp-for="CardNumber" class="form-control border-start-0 ps-0" placeholder="0000-0000-0000-0000" maxlength="19" />
+                            </div>
+                            <span asp-validation-for="CardNumber" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <label asp-for="Expiry" class="form-label"></label>
+                                <input asp-for="Expiry" class="form-control" placeholder="MM/YY" maxlength="5" />
+                                <span asp-validation-for="Expiry" class="text-danger small"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="CVV" class="form-label"></label>
+                                <div class="input-group">
+                                    <input asp-for="CVV" class="form-control" type="password" placeholder="123" maxlength="4" />
+                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-lock"></i></span>
+                                </div>
+                                <span asp-validation-for="CVV" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                                <i class="fas fa-check-circle me-2"></i>Pay $@Model.TotalAmount.ToString("N2")
+                            </button>
+                            <a href="/POS" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancel Transaction
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-light text-center py-3 text-muted small rounded-bottom-4">
+                    <i class="fas fa-lock me-1"></i> 256-bit SSL Encrypted Connection
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

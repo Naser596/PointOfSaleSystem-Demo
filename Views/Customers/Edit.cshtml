@@ -1,0 +1,80 @@
+@model WebApplication3.Models.Customer
+
+@{
+    ViewData["Title"] = "Edit Customer";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-user-edit me-2"></i>Edit Customer</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="Edit">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="Id" />
+                    
+                    <div class="form-floating mb-3">
+                        <input asp-for="Name" class="form-control" placeholder="Full Name" />
+                        <label asp-for="Name">Full Name</label>
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                <input asp-for="Phone" class="form-control" placeholder="Phone Number" />
+                                <label asp-for="Phone">Phone Number</label>
+                                <span asp-validation-for="Phone" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating mb-3">
+                                <input asp-for="Email" class="form-control" placeholder="Email Address" type="email" />
+                                <label asp-for="Email">Email Address</label>
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input asp-for="Address" class="form-control" placeholder="Address" />
+                        <label asp-for="Address">Address</label>
+                        <span asp-validation-for="Address" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-floating mb-4">
+                        <textarea asp-for="Notes" class="form-control" placeholder="Notes" style="height: 100px"></textarea>
+                        <label asp-for="Notes">Notes</label>
+                        <span asp-validation-for="Notes" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row mb-3">
+                         <div class="col-md-4">
+                             <div class="p-3 bg-light rounded text-center">
+                                 <small class="text-muted d-block">Loyalty Points</small>
+                                 <strong class="h5">@Model.LoyaltyPoints</strong>
+                             </div>
+                         </div>
+                         <div class="col-md-4">
+                             <div class="p-3 bg-light rounded text-center">
+                                 <small class="text-muted d-block">Total Purchases</small>
+                                 <strong class="h5">$@Model.TotalPurchases.ToString("N2")</strong>
+                             </div>
+                         </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

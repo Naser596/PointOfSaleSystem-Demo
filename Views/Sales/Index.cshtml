@@ -1,0 +1,63 @@
+@model List<Sale>
+@{
+    ViewData["Title"] = "Sales History";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-receipt me-3"></i>Sales History</h1>
+    <p>View all completed sales transactions</p>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        @if (Model != null && Model.Any())
+        {
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Sale #</th>
+                        <th>Date</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sale in Model)
+                    {
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-success bg-opacity-10 rounded-circle p-2 me-3">
+                                        <i class="fas fa-receipt text-success"></i>
+                                    </div>
+                                    <strong>@sale.SaleNumber</strong>
+                                </div>
+                            </td>
+                            <td>@sale.SaleDate.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td><span class="badge bg-light text-dark">@sale.SaleItems.Count items</span></td>
+                            <td><span class="fw-bold text-success h5 mb-0">$@sale.TotalAmount.ToString("N2")</span></td>
+                            <td><span class="badge bg-success">@sale.Status</span></td>
+                            <td>
+                                <a href="/Sales/Details/@sale.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i>Details
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-receipt fa-3x mb-3"></i>
+                <p>No sales yet. Make your first sale!</p>
+                <a href="/POS" class="btn btn-primary">
+                    <i class="fas fa-shopping-cart me-2"></i>Open POS Terminal
+                </a>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\bin",
+    "\\bin\\Debug",
+    "\\bin\\Debug\\net8.0",
+    "\\bin\\Debug\\net8.0\\ru",
+    "\\Models",
+    "\\Views",
+    "\\Views\\Home",
+    "\\Views\\Sales",
+    "\\Views\\Shared"
+  ],
+  "SelectedNode": "\\Models\\ProductViewModels.cs",
+  "PreviewInSolutionExplorer": false
+}

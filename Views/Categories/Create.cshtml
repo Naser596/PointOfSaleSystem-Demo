@@ -1,0 +1,106 @@
+@model Category
+@{
+    ViewData["Title"] = "Create Category";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-plus-circle me-3"></i>Create Category</h1>
+    <p>Add a new product category</p>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    @Html.AntiForgeryToken()
+                    
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label">Category Name *</label>
+                        <input asp-for="Name" class="form-control" placeholder="e.g., Electronics" required />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">Description</label>
+                        <textarea asp-for="Description" class="form-control" rows="3" placeholder="Optional description"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="IconClass" class="form-label">Icon Class</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i id="iconPreview" class="fas fa-folder"></i></span>
+                            <input asp-for="IconClass" class="form-control" placeholder="fas fa-laptop" id="iconInput" />
+                        </div>
+                        <small class="text-muted">Use <a href="https://fontawesome.com/icons" target="_blank">Font Awesome</a> icon classes</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="DisplayOrder" class="form-label">Display Order</label>
+                        <input asp-for="DisplayOrder" type="number" class="form-control" value="0" />
+                        <small class="text-muted">Lower numbers appear first</small>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+                            <label asp-for="IsActive" class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Create Category
+                        </button>
+                        <a href="/Categories" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Common Icons
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-3">
+                    @{
+                        var icons = new[] { 
+                            ("fas fa-laptop", "Electronics"),
+                            ("fas fa-mobile-alt", "Phones"),
+                            ("fas fa-tv", "TVs"),
+                            ("fas fa-headphones", "Audio"),
+                            ("fas fa-gamepad", "Gaming"),
+                            ("fas fa-keyboard", "Accessories"),
+                            ("fas fa-camera", "Cameras"),
+                            ("fas fa-tablet-alt", "Tablets"),
+                            ("fas fa-desktop", "Computers"),
+                            ("fas fa-plug", "Cables")
+                        };
+                    }
+                    @foreach (var (icon, name) in icons)
+                    {
+                        <button type="button" class="btn btn-outline-primary icon-btn" onclick="setIcon('@icon')" title="@name">
+                            <i class="@icon"></i>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function setIcon(iconClass) {
+        document.getElementById('iconInput').value = iconClass;
+        document.getElementById('iconPreview').className = iconClass;
+    }
+    
+    document.getElementById('iconInput').addEventListener('input', function(e) {
+        document.getElementById('iconPreview').className = e.target.value || 'fas fa-folder';
+    });
+</script>
+}

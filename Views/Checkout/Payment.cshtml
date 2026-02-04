@@ -1,0 +1,215 @@
+@model WebApplication3.Models.CheckoutViewModel
+@{
+    ViewData["Title"] = "Payment";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-credit-card me-3"></i>Payment</h1>
+    <p>Complete your purchase</p>
+</div>
+
+<div class="row">
+    <!-- Order Summary -->
+    <div class="col-lg-5 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-receipt me-2"></i>Order Summary
+            </div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-end">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.CartItems)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="fw-bold">@item.Name</span>
+                                    <br />
+                                    <small class="text-muted">$@item.Price.ToString("N2") each</small>
+                                </td>
+                                <td class="text-center">@item.Quantity</td>
+                                <td class="text-end fw-bold">$@item.Total.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td colspan="2" class="fw-bold text-uppercase">Total</td>
+                            <td class="text-end fw-bold fs-5 text-primary">$@Model.TotalAmount.ToString("N2")</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-wallet me-2"></i>Payment Details
+            </div>
+            <div class="card-body">
+                <form asp-action="Pay" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="CartJson" />
+
+                    <!-- Payment Method Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Payment Method</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check payment-option flex-grow-1">
+                                <input class="form-check-input" type="radio" name="PaymentMethod" id="paymentCash" value="Cash" checked onchange="toggleCardFields()">
+                                <label class="form-check-label d-flex align-items-center gap-2" for="paymentCash">
+                                    <i class="fas fa-money-bill-wave fa-lg text-success"></i>
+                                    <span>Cash</span>
+                                </label>
+                            </div>
+                            <div class="form-check payment-option flex-grow-1">
+                                <input class="form-check-input" type="radio" name="PaymentMethod" id="paymentCard" value="DebitCard" onchange="toggleCardFields()">
+                                <label class="form-check-label d-flex align-items-center gap-2" for="paymentCard">
+                                    <i class="fas fa-credit-card fa-lg text-primary"></i>
+                                    <span>Debit Card</span>
+                                </label>
+                            </div>
+                        </div>
+                        <span asp-validation-for="PaymentMethod" class="text-danger"></span>
+                    </div>
+
+                    <!-- Card Details (shown only for Debit Card) -->
+                    <div id="cardFields" style="display: none;">
+                        <h6 class="text-muted mb-3"><i class="fas fa-lock me-2"></i>Card Information</h6>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label asp-for="CardholderName" class="form-label">Cardholder Name</label>
+                                <input asp-for="CardholderName" class="form-control" placeholder="Name on card" />
+                                <span asp-validation-for="CardholderName" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label asp-for="CardNumber" class="form-label">Card Number</label>
+                                <input asp-for="CardNumber" class="form-control" placeholder="1234 5678 9012 3456" maxlength="19" />
+                                <span asp-validation-for="CardNumber" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label asp-for="CardExpiry" class="form-label">Expiry (MM/YY)</label>
+                                <input asp-for="CardExpiry" class="form-control" placeholder="MM/YY" maxlength="5" />
+                                <span asp-validation-for="CardExpiry" class="text-danger"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="CardCVV" class="form-label">CVV</label>
+                                <input asp-for="CardCVV" class="form-control" placeholder="123" maxlength="4" />
+                                <span asp-validation-for="CardCVV" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <hr class="my-4" />
+                    </div>
+
+                    <!-- Billing Address -->
+                    <h6 class="text-muted mb-3"><i class="fas fa-map-marker-alt me-2"></i>Billing Information</h6>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label asp-for="FullName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input asp-for="FullName" class="form-control" placeholder="Your full name" />
+                            <span asp-validation-for="FullName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label asp-for="AddressLine" class="form-label">Address</label>
+                            <input asp-for="AddressLine" class="form-control" placeholder="Street address" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="City" class="form-label">City</label>
+                            <input asp-for="City" class="form-control" placeholder="City" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PostalCode" class="form-label">Postal Code</label>
+                            <input asp-for="PostalCode" class="form-control" placeholder="Postal code" />
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label asp-for="Country" class="form-label">Country</label>
+                            <input asp-for="Country" class="form-control" placeholder="Country" />
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-3">
+                        <a href="/POS" class="btn btn-outline-secondary flex-grow-1">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Cart
+                        </a>
+                        <button type="submit" class="btn btn-success flex-grow-1">
+                            <i class="fas fa-check me-2"></i>Pay $@Model.TotalAmount.ToString("N2")
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function toggleCardFields() {
+        const cardRadio = document.getElementById('paymentCard');
+        const cardFields = document.getElementById('cardFields');
+        
+        if (cardRadio.checked) {
+            cardFields.style.display = 'block';
+        } else {
+            cardFields.style.display = 'none';
+        }
+    }
+
+    // Initialize on page load (in case of validation errors returning with DebitCard selected)
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleCardFields();
+    });
+</script>
+
+<style>
+    .payment-option {
+        background: #f9fafb;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .payment-option:hover {
+        border-color: var(--primary);
+        background: #fff;
+    }
+    
+    .payment-option:has(input:checked) {
+        border-color: var(--primary);
+        background: rgba(79, 70, 229, 0.05);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    #cardFields {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+</style>
+}
