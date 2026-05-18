@@ -1,0 +1,100 @@
+@model SalesReturnViewModel
+@{
+    ViewData["Title"] = "Process Return";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-undo me-3"></i>Process Return</h1>
+    <p>Return products by transaction ID and restore inventory</p>
+</div>
+
+<form asp-action="Return" asp-route-id="@Model.SaleId" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="SaleId" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-box-open me-2"></i>Return Items
+                </div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-center">Sold</th>
+                                <th class="text-center">Returned</th>
+                                <th class="text-center">Available</th>
+                                <th class="text-end">Unit Price</th>
+                                <th style="width: 160px;">Return Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < Model.Items.Count; i++)
+                            {
+                                <tr>
+                                    <td>
+                                        <input type="hidden" asp-for="Items[i].SaleItemId" />
+                                        <input type="hidden" asp-for="Items[i].ProductName" />
+                                        <input type="hidden" asp-for="Items[i].Quantity" />
+                                        <input type="hidden" asp-for="Items[i].ReturnedQuantity" />
+                                        <input type="hidden" asp-for="Items[i].ReturnableQuantity" />
+                                        <input type="hidden" asp-for="Items[i].UnitPrice" />
+                                        <strong>@Model.Items[i].ProductName</strong>
+                                    </td>
+                                    <td class="text-center">@Model.Items[i].Quantity</td>
+                                    <td class="text-center">@Model.Items[i].ReturnedQuantity</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark">@Model.Items[i].ReturnableQuantity</span>
+                                    </td>
+                                    <td class="text-end">$@Model.Items[i].UnitPrice.ToString("N2")</td>
+                                    <td>
+                                        <input asp-for="Items[i].ReturnQuantity" type="number" min="0" max="@Model.Items[i].ReturnableQuantity" class="form-control" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-receipt me-2"></i>Transaction
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="text-muted small">SALE NUMBER</div>
+                        <div class="h5">@Model.SaleNumber</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">DATE</div>
+                        <div>@Model.SaleDate.ToString("MMM dd, yyyy HH:mm")</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">PAID</div>
+                        <div class="h4 text-success">$@Model.TotalAmount.ToString("N2")</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="text-muted small">ALREADY REFUNDED</div>
+                        <div class="h5 text-danger">$@Model.RefundedAmount.ToString("N2")</div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Reason" class="form-label">Return reason</label>
+                        <textarea asp-for="Reason" class="form-control" rows="3" placeholder="Damaged item, wrong product, customer request..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100 mb-2">
+                        <i class="fas fa-check me-2"></i>Confirm Return
+                    </button>
+                    <a href="/Sales/Details/@Model.SaleId" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-arrow-left me-2"></i>Cancel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+

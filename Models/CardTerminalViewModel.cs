@@ -9,8 +9,10 @@ namespace WebApplication3.Models
         public string CartJson { get; set; } = "[]";
 
         public decimal TotalAmount { get; set; }
-        
+
         public int ItemCount { get; set; }
+
+        public string? DiscountCode { get; set; }
 
         [Required(ErrorMessage = "Card Number is required")]
         [Display(Name = "Card Number")]

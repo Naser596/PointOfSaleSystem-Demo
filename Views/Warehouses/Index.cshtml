@@ -1,0 +1,731 @@
+@model WarehouseDashboardViewModel
+@{
+    ViewData["Title"] = "Warehouses";
+    var stockRowsJson = System.Text.Json.JsonSerializer.Serialize(Model.Stocks.Select(s => new
+    {
+        productId = s.ProductId,
+        warehouseId = s.WarehouseId,
+        locationId = s.StockLocationId,
+        productName = s.Product.Name,
+        warehouseName = s.Warehouse.Name,
+        locationName = s.StockLocation == null ? "" : s.StockLocation.Name,
+        quantity = s.QuantityOnHand,
+        reserved = s.QuantityReserved
+    }));
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-warehouse me-3"></i>Warehouses</h1>
+        <p>Warehouses and stock locations for multi-location inventory control.</p>
+    </div>
+    <div class="page-actions">
+        <a href="/Warehouses/StockCounts" class="btn btn-outline-primary"><i class="fas fa-clipboard-check me-2"></i>Stock Counts</a>
+        <a href="/Warehouses/StockLedger" class="btn btn-primary"><i class="fas fa-clipboard-list me-2"></i>Stock Ledger</a>
+        <a href="/Erp" class="btn btn-outline-secondary"><i class="fas fa-sitemap me-2"></i>ERP Core</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="metric-card h-100">
+            <div class="metric-label">Warehouses</div>
+            <div class="metric-value">@Model.Warehouses.Count</div>
+            <div class="metric-subtitle">Registered stock warehouses</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card h-100">
+            <div class="metric-label">Stock Rows</div>
+            <div class="metric-value">@Model.Stocks.Count</div>
+            <div class="metric-subtitle">Product and warehouse balances</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric-card h-100">
+            <div class="metric-label">On Hand</div>
+            <div class="metric-value">@Model.Stocks.Sum(s => s.QuantityOnHand).ToString("N2")</div>
+            <div class="metric-subtitle">Total warehouse quantity</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center gap-3">
+        <span><i class="fas fa-table-cells-large me-2"></i>Stock Matrix</span>
+        <span class="small text-muted">Product quantity by warehouse</span>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Products.Any() && Model.Warehouses.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 220px;">Product</th>
+                            <th>SKU</th>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <th class="text-end">@warehouse.Name</th>
+                            }
+                            <th class="text-end">Unassigned</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var product in Model.Products)
+                        {
+                            var productStocks = Model.Stocks.Where(s => s.ProductId == product.Id).ToList();
+                            var warehouseTotal = productStocks.Sum(s => s.QuantityOnHand);
+                            var unassigned = Math.Max(product.Stock - warehouseTotal, 0);
+                            var total = warehouseTotal + unassigned;
+                            <tr>
+                                <td><strong>@product.Name</strong></td>
+                                <td>@(product.SKU ?? "-")</td>
+                                @foreach (var warehouse in Model.Warehouses)
+                                {
+                                    var quantity = productStocks
+                                        .Where(s => s.WarehouseId == warehouse.Id)
+                                        .Sum(s => s.QuantityOnHand);
+                                    <td class="text-end">
+                                        @if (quantity > 0)
+                                        {
+                                            <span class="badge bg-success">@quantity.ToString("N2")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">0.00</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="text-end">
+                                    @if (unassigned > 0)
+                                    {
+                                        <span class="badge bg-warning text-dark">@unassigned.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">0.00</span>
+                                    }
+                                </td>
+                                <td class="text-end fw-bold">@total.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-table-cells-large fa-3x mb-3"></i>
+                <p>Stock matrix needs at least one product and one warehouse.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center gap-3">
+        <span><i class="fas fa-boxes-stacked me-2"></i>Current Product Stock by Warehouse</span>
+        <a href="/Warehouses/StockLedger" class="btn btn-sm btn-outline-primary"><i class="fas fa-clipboard-list me-1"></i>Full Ledger</a>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Stocks.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Warehouse</th>
+                            <th>Location</th>
+                            <th class="text-end">On Hand</th>
+                            <th class="text-end">Reserved</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var stock in Model.Stocks)
+                        {
+                            <tr>
+                                <td><strong>@stock.Product.Name</strong></td>
+                                <td>@(stock.Product.SKU ?? "-")</td>
+                                <td>@stock.Warehouse.Name</td>
+                                <td>@(stock.StockLocation?.Name ?? "-")</td>
+                                <td class="text-end fw-semibold">@stock.QuantityOnHand.ToString("N2")</td>
+                                <td class="text-end">@stock.QuantityReserved.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-boxes-stacked fa-3x mb-3"></i>
+                <p>No warehouse stock yet.</p>
+                <div class="small text-muted">Use Stock Adjustment below with a positive quantity, for example +10, to create the first warehouse stock row.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <strong>Note:</strong> quantities under warehouse columns come from warehouse transactions. If a quantity appears under <strong>Unassigned</strong>, the product has global stock but it has not yet been assigned to a warehouse. Use <strong>Assign Existing Product Stock to Warehouse</strong> to place it into the correct warehouse without increasing total stock.
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-box-open me-2"></i>Assign Existing Product Stock to Warehouse</div>
+    <div class="card-body">
+        <form asp-action="AssignExistingStock" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-3">
+                <label class="form-label">Product</label>
+                <select name="ProductId" class="form-select js-assign-product" required>
+                    <option value="">Select product</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        var assigned = Model.Stocks.Where(s => s.ProductId == product.Id).Sum(s => s.QuantityOnHand);
+                        var unassigned = Math.Max(product.Stock - assigned, 0);
+                        <option value="@product.Id" data-unassigned="@unassigned">@product.Name (@unassigned.ToString("N2") unassigned)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Warehouse</label>
+                <select name="WarehouseId" class="form-select js-assign-warehouse" required>
+                    <option value="">Select warehouse</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id">@warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Location</label>
+                <select name="StockLocationId" class="form-select js-assign-location">
+                    <option value="">No location</option>
+                    @foreach (var location in Model.Locations)
+                    {
+                        <option value="@location.Id" data-warehouse-id="@location.WarehouseId">@location.Warehouse.Name - @location.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Quantity</label>
+                <input name="Quantity" type="number" min="0.001" step="0.001" class="form-control js-assign-quantity" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Reason</label>
+                <input name="Reason" class="form-control" placeholder="Initial allocation" />
+            </div>
+            <div class="col-12 d-flex justify-content-between align-items-center gap-3">
+                <div class="small text-muted js-assign-preview">Select a product to see unassigned stock.</div>
+                <button type="submit" class="btn btn-success"><i class="fas fa-box-open me-2"></i>Assign to Warehouse</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-plus me-2"></i>New Warehouse</div>
+            <div class="card-body">
+                <form asp-action="CreateWarehouse" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-8">
+                        <label class="form-label">Name</label>
+                        <input name="Name" class="form-control" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Code</label>
+                        <input name="Code" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Address</label>
+                        <input name="Address" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus me-2"></i>Create Warehouse</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-location-dot me-2"></i>New Location</div>
+            <div class="card-body">
+                <form asp-action="CreateLocation" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6">
+                        <label class="form-label">Warehouse</label>
+                        <select name="WarehouseId" class="form-select" required>
+                            <option value="">Select</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Location</label>
+                        <input name="Name" class="form-control" required />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Code</label>
+                        <input name="Code" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus me-2"></i>Create Location</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-barcode me-2"></i>Batch / Serial Tracking</div>
+            <div class="card-body">
+                <form asp-action="CreateTraceLot" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6">
+                        <label class="form-label">Product</label>
+                        <select name="ProductId" class="form-select" required>
+                            <option value="">Select product</option>
+                            @foreach (var product in Model.Products)
+                            {
+                                <option value="@product.Id">@product.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Warehouse</label>
+                        <select name="WarehouseId" class="form-select">
+                            <option value="">No warehouse</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Type</label>
+                        <select name="TraceType" class="form-select">
+                            <option value="Batch">Batch</option>
+                            <option value="Serial">Serial</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Number</label>
+                        <input name="TraceNumber" class="form-control" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Quantity</label>
+                        <input name="Quantity" type="number" min="0" step="0.001" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Expiry</label>
+                        <input name="ExpiryDate" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Notes</label>
+                        <input name="Notes" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus me-2"></i>Add Batch / Serial</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-user-check me-2"></i>Pending Transfer Approvals</div>
+            <div class="card-body p-0">
+                @if (Model.PendingTransfers.Any())
+                {
+                    <table class="table mb-0 align-middle">
+                        <thead><tr><th>Transfer</th><th>Lines</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                        <tbody>
+                        @foreach (var transfer in Model.PendingTransfers)
+                        {
+                            <tr>
+                                <td><strong>@transfer.TransferNumber</strong><div class="small text-muted">@transfer.TransferDate.ToString("MMM dd, yyyy")</div></td>
+                                <td>@transfer.Lines.Count</td>
+                                <td><span class="badge bg-warning text-dark">@transfer.Status</span></td>
+                                <td class="text-end">
+                                    <form asp-action="PostApprovedTransfer" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@transfer.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Post Approved</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state"><i class="fas fa-user-check fa-3x mb-3"></i><p>No pending transfers.</p></div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-right-left me-2"></i>Transfer Stock</div>
+            <div class="card-body">
+                <form asp-action="TransferStock" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6">
+                        <label class="form-label">Product</label>
+                        <select name="ProductId" class="form-select" required>
+                            <option value="">Select product</option>
+                            @foreach (var product in Model.Products)
+                            {
+                                <option value="@product.Id">@product.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Quantity</label>
+                        <input name="Quantity" type="number" step="0.001" min="0.001" class="form-control" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">From Warehouse</label>
+                        <select name="FromWarehouseId" class="form-select" required>
+                            <option value="">Select</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">To Warehouse</label>
+                        <select name="ToWarehouseId" class="form-select" required>
+                            <option value="">Select</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">From Location</label>
+                        <select name="FromStockLocationId" class="form-select">
+                            <option value="">No location</option>
+                            @foreach (var location in Model.Locations)
+                            {
+                                <option value="@location.Id">@location.Warehouse.Name - @location.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">To Location</label>
+                        <select name="ToStockLocationId" class="form-select">
+                            <option value="">No location</option>
+                            @foreach (var location in Model.Locations)
+                            {
+                                <option value="@location.Id">@location.Warehouse.Name - @location.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-right-left me-2"></i>Post Transfer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-sliders me-2"></i>Stock Adjustment</div>
+            <div class="card-body">
+                <form asp-action="AdjustStock" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-6">
+                        <label class="form-label">Product</label>
+                        <select name="ProductId" class="form-select js-stock-product" required>
+                            <option value="">Select product</option>
+                            @foreach (var product in Model.Products)
+                            {
+                                <option value="@product.Id">@product.Name (@(product.SKU ?? "No SKU"))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Warehouse</label>
+                        <select name="WarehouseId" class="form-select js-stock-warehouse" required>
+                            <option value="">Select</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Location</label>
+                        <select name="StockLocationId" class="form-select js-stock-location">
+                            <option value="">No location</option>
+                            @foreach (var location in Model.Locations)
+                            {
+                                <option value="@location.Id" data-warehouse-id="@location.WarehouseId">@location.Warehouse.Name - @location.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Quantity Delta</label>
+                        <input name="QuantityDelta" type="number" step="0.001" class="form-control" placeholder="+5 or -2" required />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Reason</label>
+                        <input name="Reason" class="form-control" placeholder="Count correction, damage, found stock..." />
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info mb-0 js-current-stock-preview">
+                            Select product and warehouse to see current stock before posting.
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-sliders me-2"></i>Post Adjustment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-warehouse me-2"></i>Warehouse List</div>
+            <div class="card-body p-0">
+                @if (Model.Warehouses.Any())
+                {
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Code</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <tr>
+                                    <td><strong>@warehouse.Name</strong><div class="small text-muted">@warehouse.Address</div></td>
+                                    <td>@(warehouse.Code ?? "-")</td>
+                                    <td><span class="badge @(warehouse.IsActive ? "bg-success" : "bg-secondary")">@(warehouse.IsActive ? "Active" : "Inactive")</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-warehouse fa-3x mb-3"></i>
+                        <p>No warehouses yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-location-dot me-2"></i>Locations</div>
+            <div class="card-body p-0">
+                @if (Model.Locations.Any())
+                {
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Warehouse</th>
+                                <th>Location</th>
+                                <th>Code</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var location in Model.Locations)
+                            {
+                                <tr>
+                                    <td>@location.Warehouse.Name</td>
+                                    <td><strong>@location.Name</strong></td>
+                                    <td>@(location.Code ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-location-dot fa-3x mb-3"></i>
+                        <p>No stock locations yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const stockRows = @Html.Raw(stockRowsJson);
+            const productSelect = document.querySelector('.js-stock-product');
+            const warehouseSelect = document.querySelector('.js-stock-warehouse');
+            const locationSelect = document.querySelector('.js-stock-location');
+            const preview = document.querySelector('.js-current-stock-preview');
+            const assignProductSelect = document.querySelector('.js-assign-product');
+            const assignWarehouseSelect = document.querySelector('.js-assign-warehouse');
+            const assignLocationSelect = document.querySelector('.js-assign-location');
+            const assignQuantityInput = document.querySelector('.js-assign-quantity');
+            const assignPreview = document.querySelector('.js-assign-preview');
+
+            function selectedNumber(select) {
+                const value = select?.value || '';
+                return value ? Number(value) : null;
+            }
+
+            function updateLocationOptions() {
+                const warehouseId = selectedNumber(warehouseSelect);
+                for (const option of locationSelect.options) {
+                    if (!option.value) {
+                        option.hidden = false;
+                        continue;
+                    }
+                    option.hidden = warehouseId !== null && Number(option.dataset.warehouseId) !== warehouseId;
+                }
+
+                const selected = locationSelect.selectedOptions[0];
+                if (selected?.hidden) {
+                    locationSelect.value = '';
+                }
+            }
+
+            function updateAssignLocationOptions() {
+                const warehouseId = selectedNumber(assignWarehouseSelect);
+                if (!assignLocationSelect) return;
+
+                for (const option of assignLocationSelect.options) {
+                    if (!option.value) {
+                        option.hidden = false;
+                        continue;
+                    }
+                    option.hidden = warehouseId !== null && Number(option.dataset.warehouseId) !== warehouseId;
+                }
+
+                const selected = assignLocationSelect.selectedOptions[0];
+                if (selected?.hidden) {
+                    assignLocationSelect.value = '';
+                }
+            }
+
+            function updateAssignPreview() {
+                updateAssignLocationOptions();
+                if (!assignProductSelect || !assignPreview) return;
+
+                const option = assignProductSelect.selectedOptions[0];
+                const unassigned = option?.dataset.unassigned ? Number(option.dataset.unassigned) : null;
+                if (!assignProductSelect.value || unassigned === null) {
+                    assignPreview.textContent = 'Select a product to see unassigned stock.';
+                    if (assignQuantityInput) assignQuantityInput.removeAttribute('max');
+                    return;
+                }
+
+                assignPreview.textContent = `${unassigned.toFixed(2)} units are available to assign to a warehouse.`;
+                if (assignQuantityInput) {
+                    assignQuantityInput.max = unassigned.toString();
+                    if (Number(assignQuantityInput.value || 0) > unassigned) {
+                        assignQuantityInput.value = unassigned > 0 ? unassigned.toString() : '';
+                    }
+                }
+            }
+
+            function updatePreview() {
+                updateLocationOptions();
+                const productId = selectedNumber(productSelect);
+                const warehouseId = selectedNumber(warehouseSelect);
+                const locationId = selectedNumber(locationSelect);
+
+                if (!productId || !warehouseId) {
+                    preview.className = 'alert alert-info mb-0 js-current-stock-preview';
+                    preview.textContent = 'Select product and warehouse to see current stock before posting.';
+                    return;
+                }
+
+                const rows = stockRows.filter(row =>
+                    row.productId === productId &&
+                    row.warehouseId === warehouseId &&
+                    (locationId === null || row.locationId === locationId));
+
+                if (!rows.length) {
+                    preview.className = 'alert alert-warning mb-0 js-current-stock-preview';
+                    preview.textContent = 'Current stock: 0.00. No stock row exists yet for this product and warehouse.';
+                    return;
+                }
+
+                const total = rows.reduce((sum, row) => sum + row.quantity, 0);
+                const reserved = rows.reduce((sum, row) => sum + row.reserved, 0);
+                const locationText = locationId ? ` in ${rows[0].locationName}` : '';
+                preview.className = 'alert alert-success mb-0 js-current-stock-preview';
+                preview.textContent = `Current stock for ${rows[0].productName} in ${rows[0].warehouseName}${locationText}: ${total.toFixed(2)} on hand, ${reserved.toFixed(2)} reserved.`;
+            }
+
+            productSelect?.addEventListener('change', updatePreview);
+            warehouseSelect?.addEventListener('change', updatePreview);
+            locationSelect?.addEventListener('change', updatePreview);
+            assignProductSelect?.addEventListener('change', updateAssignPreview);
+            assignWarehouseSelect?.addEventListener('change', updateAssignPreview);
+            assignLocationSelect?.addEventListener('change', updateAssignPreview);
+            updatePreview();
+            updateAssignPreview();
+        })();
+    </script>
+}
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-barcode me-2"></i>Recent Batch / Serial Records</div>
+    <div class="card-body p-0">
+        @if (Model.TraceLots.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead><tr><th>Product</th><th>Type</th><th>Number</th><th>Warehouse</th><th class="text-end">Qty</th><th>Expiry</th></tr></thead>
+                    <tbody>
+                    @foreach (var lot in Model.TraceLots)
+                    {
+                        <tr>
+                            <td><strong>@lot.Product.Name</strong></td>
+                            <td>@lot.TraceType</td>
+                            <td><code>@lot.TraceNumber</code></td>
+                            <td>@(lot.Warehouse?.Name ?? "-")</td>
+                            <td class="text-end">@lot.Quantity.ToString("N2")</td>
+                            <td>@(lot.ExpiryDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state"><i class="fas fa-barcode fa-3x mb-3"></i><p>No batch or serial records yet.</p></div>
+        }
+    </div>
+</div>

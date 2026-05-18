@@ -1,0 +1,404 @@
+@model SupplierInvoiceCreateViewModel
+@{
+    ViewData["Title"] = "Create Supplier Invoice";
+    var productOptionsJson = System.Text.Json.JsonSerializer.Serialize(Model.AvailableProducts.Select(p => new
+    {
+        id = p.Id,
+        name = p.Name,
+        sku = p.SKU,
+        cost = p.CostPrice
+    }));
+}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="fas fa-plus-circle me-3"></i>Create Supplier Invoice</h1>
+        <p>Create a supplier invoice, receive inventory, or add new products directly from invoice lines.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back
+    </a>
+</div>
+
+<form asp-action="Create" id="invoiceForm">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-truck me-2"></i>Supplier Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="PurchaseOrderId" class="form-label"></label>
+                    <select asp-for="PurchaseOrderId" class="form-select">
+                        <option value="">No purchase order match</option>
+                        @foreach (var order in Model.AvailablePurchaseOrders)
+                        {
+                            <option value="@order.Id">@order.OrderNumber - @order.SupplierName - @order.TotalAmount.ToString("C")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="GoodsReceiptId" class="form-label"></label>
+                    <select asp-for="GoodsReceiptId" class="form-select">
+                        <option value="">No goods receipt match</option>
+                        @foreach (var receipt in Model.AvailableGoodsReceipts)
+                        {
+                            <option value="@receipt.Id">@receipt.ReceiptNumber - @(receipt.PurchaseOrder?.OrderNumber ?? "No PO") - @receipt.ReceiptDate.ToString("yyyy-MM-dd")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SupplierInvoiceNumber" class="form-label"></label>
+                    <input asp-for="SupplierInvoiceNumber" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="InvoiceDate" class="form-label"></label>
+                    <input asp-for="InvoiceDate" class="form-control" type="date" />
+                    <span asp-validation-for="InvoiceDate" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="DueDate" class="form-label"></label>
+                    <input asp-for="DueDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="SupplierName" class="form-label"></label>
+                    <input asp-for="SupplierName" class="form-control" placeholder="Optional - defaults to Direct Supplier" />
+                    <span asp-validation-for="SupplierName" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="SupplierTaxNumber" class="form-label"></label>
+                    <input asp-for="SupplierTaxNumber" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SupplierPhone" class="form-label"></label>
+                    <input asp-for="SupplierPhone" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SupplierEmail" class="form-label"></label>
+                    <input asp-for="SupplierEmail" class="form-control" />
+                    <span asp-validation-for="SupplierEmail" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SupplierAddress" class="form-label"></label>
+                    <input asp-for="SupplierAddress" class="form-control" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-warehouse me-2"></i>Inventory Receipt</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="WarehouseId" class="form-label"></label>
+                    <select asp-for="WarehouseId" class="form-select" id="invoiceWarehouseSelect">
+                        <option value="">Do not receive stock from this invoice</option>
+                        @foreach (var warehouse in Model.AvailableWarehouses)
+                        {
+                            <option value="@warehouse.Id">@warehouse.Name</option>
+                        }
+                    </select>
+                    <div class="form-text">Required when invoice lines are linked to products and no goods receipt is selected.</div>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="StockLocationId" class="form-label"></label>
+                    <select asp-for="StockLocationId" class="form-select" id="invoiceLocationSelect">
+                        <option value="">No location</option>
+                        @foreach (var location in Model.AvailableStockLocations)
+                        {
+                            <option value="@location.Id" data-warehouse-id="@location.WarehouseId">@location.Warehouse.Name - @location.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="alert alert-info mt-3 mb-0">
+                If a goods receipt is selected, stock has already been received there. If this is a direct supplier invoice, select product lines and a warehouse to receive stock from this invoice.
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Invoice Items</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="addRowBtn">
+                <i class="fas fa-plus me-1"></i>Add Row
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0" id="itemsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width: 240px;">Product</th>
+                            <th style="min-width: 260px;">Description</th>
+                            <th style="width: 130px;">Qty</th>
+                            <th style="width: 150px;">Unit Cost</th>
+                            <th style="width: 120px;">Tax %</th>
+                            <th class="text-end" style="width: 150px;">Line Total</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < Model.Items.Count; i++)
+                        {
+                            <tr>
+                                <td>
+                                    <select name="Items[@i].ProductId" class="form-select item-product">
+                                        <option value="">Expense / no stock</option>
+                                        @foreach (var product in Model.AvailableProducts)
+                                        {
+                                            <option value="@product.Id" selected="@(Model.Items[i].ProductId == product.Id)">@product.Name (@(product.SKU ?? "No SKU"))</option>
+                                        }
+                                    </select>
+                                    <input type="hidden" name="Items[@i].CreateNewProduct" value="false" class="item-create-new-hidden" />
+                                    <input type="checkbox" name="Items[@i].CreateNewProduct" value="true" class="item-create-new visually-hidden" checked="@Model.Items[i].CreateNewProduct" />
+                                    <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2 item-new-product-toggle">
+                                        <i class="fas fa-plus me-1"></i>New Product
+                                    </button>
+                                    <div class="new-product-fields mt-2" style="display:@(Model.Items[i].CreateNewProduct ? "block" : "none")">
+                                        <input name="Items[@i].NewProductName" value="@Model.Items[i].NewProductName" class="form-control form-control-sm mb-2 item-new-name" placeholder="New product name" />
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <input name="Items[@i].NewProductSku" value="@Model.Items[i].NewProductSku" class="form-control form-control-sm item-new-sku" placeholder="SKU" />
+                                            </div>
+                                            <div class="col-6">
+                                                <input name="Items[@i].NewProductSalePrice" value="@Model.Items[i].NewProductSalePrice" class="form-control form-control-sm item-new-price" type="number" step="0.01" min="0" placeholder="Sale price" />
+                                            </div>
+                                            <div class="col-6">
+                                                <input name="Items[@i].NewProductMinStock" value="@Model.Items[i].NewProductMinStock" class="form-control form-control-sm item-new-min" type="number" min="0" placeholder="Min stock" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input name="Items[@i].Description" value="@Model.Items[i].Description" class="form-control item-description" />
+                                </td>
+                                <td>
+                                    <input name="Items[@i].Quantity" value="@Model.Items[i].Quantity" class="form-control item-qty" type="number" step="0.001" min="0" />
+                                </td>
+                                <td>
+                                    <input name="Items[@i].UnitCost" value="@Model.Items[i].UnitCost" class="form-control item-cost" type="number" step="0.01" min="0" />
+                                </td>
+                                <td>
+                                    <input name="Items[@i].TaxRate" value="@Model.Items[i].TaxRate" class="form-control item-tax" type="number" step="0.01" min="0" />
+                                </td>
+                                <td class="text-end fw-semibold line-total">$0.00</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <div class="row justify-content-end">
+                <div class="col-md-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Subtotal</span>
+                        <strong id="subTotal">$0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tax</span>
+                        <strong id="taxTotal">$0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between fs-5 border-top pt-2">
+                        <span>Total</span>
+                        <strong id="grandTotal">$0.00</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="fas fa-save me-2"></i>Save Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tbody = document.querySelector('#itemsTable tbody');
+            const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+            const products = @Html.Raw(productOptionsJson);
+            const warehouseSelect = document.getElementById('invoiceWarehouseSelect');
+            const locationSelect = document.getElementById('invoiceLocationSelect');
+
+            function productOptionsHtml(selectedValue = '') {
+                const options = ['<option value="">Expense / no stock</option>'];
+                products.forEach(product => {
+                    const selected = String(product.id) === String(selectedValue) ? ' selected' : '';
+                    const sku = product.sku || 'No SKU';
+                    options.push(`<option value="${product.id}"${selected}>${product.name} (${sku})</option>`);
+                });
+                return options.join('');
+            }
+
+            function renumberRows() {
+                [...tbody.querySelectorAll('tr')].forEach((row, index) => {
+                    row.querySelector('.item-product').name = `Items[${index}].ProductId`;
+                    row.querySelector('.item-create-new-hidden').name = `Items[${index}].CreateNewProduct`;
+                    row.querySelector('.item-create-new').name = `Items[${index}].CreateNewProduct`;
+                    row.querySelector('.item-new-name').name = `Items[${index}].NewProductName`;
+                    row.querySelector('.item-new-sku').name = `Items[${index}].NewProductSku`;
+                    row.querySelector('.item-new-price').name = `Items[${index}].NewProductSalePrice`;
+                    row.querySelector('.item-new-min').name = `Items[${index}].NewProductMinStock`;
+                    row.querySelector('.item-description').name = `Items[${index}].Description`;
+                    row.querySelector('.item-qty').name = `Items[${index}].Quantity`;
+                    row.querySelector('.item-cost').name = `Items[${index}].UnitCost`;
+                    row.querySelector('.item-tax').name = `Items[${index}].TaxRate`;
+                });
+            }
+
+            function updateNewProductMode(row) {
+                const checkbox = row.querySelector('.item-create-new');
+                const fields = row.querySelector('.new-product-fields');
+                const productSelect = row.querySelector('.item-product');
+                const description = row.querySelector('.item-description');
+                const newName = row.querySelector('.item-new-name');
+                const cost = row.querySelector('.item-cost');
+                const salePrice = row.querySelector('.item-new-price');
+                const toggleButton = row.querySelector('.item-new-product-toggle');
+
+                const isNew = checkbox.checked;
+                fields.style.display = isNew ? 'block' : 'none';
+                productSelect.disabled = isNew;
+                toggleButton.classList.toggle('btn-primary', isNew);
+                toggleButton.classList.toggle('btn-outline-primary', !isNew);
+                toggleButton.innerHTML = isNew
+                    ? '<i class="fas fa-check me-1"></i>New Product Selected'
+                    : '<i class="fas fa-plus me-1"></i>New Product';
+                if (isNew) {
+                    productSelect.value = '';
+                    if (!newName.value && description.value) newName.value = description.value;
+                    if (!salePrice.value && cost.value) salePrice.value = cost.value;
+                }
+            }
+
+            function calculate() {
+                let subTotal = 0;
+                let taxTotal = 0;
+
+                tbody.querySelectorAll('tr').forEach(row => {
+                    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+                    const cost = parseFloat(row.querySelector('.item-cost').value) || 0;
+                    const taxRate = parseFloat(row.querySelector('.item-tax').value) || 0;
+                    const lineSubTotal = qty * cost;
+                    const lineTax = lineSubTotal * (taxRate / 100);
+                    const lineTotal = lineSubTotal + lineTax;
+
+                    subTotal += lineSubTotal;
+                    taxTotal += lineTax;
+                    row.querySelector('.line-total').textContent = formatter.format(lineTotal);
+                });
+
+                document.getElementById('subTotal').textContent = formatter.format(subTotal);
+                document.getElementById('taxTotal').textContent = formatter.format(taxTotal);
+                document.getElementById('grandTotal').textContent = formatter.format(subTotal + taxTotal);
+            }
+
+            function bindRow(row) {
+                row.querySelector('.item-product').addEventListener('change', function () {
+                    const product = products.find(p => String(p.id) === this.value);
+                    if (!product) return;
+                    const description = row.querySelector('.item-description');
+                    const cost = row.querySelector('.item-cost');
+                    if (!description.value) description.value = product.name;
+                    if (!parseFloat(cost.value || '0')) cost.value = product.cost;
+                    calculate();
+                });
+                row.querySelector('.item-create-new').addEventListener('change', function () {
+                    updateNewProductMode(row);
+                    calculate();
+                });
+                row.querySelector('.item-new-product-toggle').addEventListener('click', function () {
+                    const checkbox = row.querySelector('.item-create-new');
+                    checkbox.checked = !checkbox.checked;
+                    updateNewProductMode(row);
+                    calculate();
+                });
+                row.querySelectorAll('input').forEach(input => input.addEventListener('input', calculate));
+                row.querySelector('.remove-row').addEventListener('click', function () {
+                    if (tbody.querySelectorAll('tr').length === 1) return;
+                    row.remove();
+                    renumberRows();
+                    calculate();
+                });
+            }
+
+            document.getElementById('addRowBtn').addEventListener('click', function () {
+                const index = tbody.querySelectorAll('tr').length;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <select name="Items[${index}].ProductId" class="form-select item-product">${productOptionsHtml()}</select>
+                        <input type="hidden" name="Items[${index}].CreateNewProduct" value="false" class="item-create-new-hidden" />
+                        <input type="checkbox" name="Items[${index}].CreateNewProduct" value="true" class="item-create-new visually-hidden" />
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2 item-new-product-toggle"><i class="fas fa-plus me-1"></i>New Product</button>
+                        <div class="new-product-fields mt-2" style="display:none">
+                            <input name="Items[${index}].NewProductName" class="form-control form-control-sm mb-2 item-new-name" placeholder="New product name" />
+                            <div class="row g-2">
+                                <div class="col-6"><input name="Items[${index}].NewProductSku" class="form-control form-control-sm item-new-sku" placeholder="SKU" /></div>
+                                <div class="col-6"><input name="Items[${index}].NewProductSalePrice" class="form-control form-control-sm item-new-price" type="number" step="0.01" min="0" placeholder="Sale price" /></div>
+                                <div class="col-6"><input name="Items[${index}].NewProductMinStock" value="5" class="form-control form-control-sm item-new-min" type="number" min="0" placeholder="Min stock" /></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><input name="Items[${index}].Description" class="form-control item-description" /></td>
+                    <td><input name="Items[${index}].Quantity" value="1" class="form-control item-qty" type="number" step="0.001" min="0" /></td>
+                    <td><input name="Items[${index}].UnitCost" value="0" class="form-control item-cost" type="number" step="0.01" min="0" /></td>
+                    <td><input name="Items[${index}].TaxRate" value="0" class="form-control item-tax" type="number" step="0.01" min="0" /></td>
+                    <td class="text-end fw-semibold line-total">$0.00</td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger remove-row"><i class="fas fa-trash"></i></button></td>
+                `;
+                tbody.appendChild(row);
+                bindRow(row);
+                calculate();
+            });
+
+            function filterLocations() {
+                const warehouseId = warehouseSelect.value;
+                [...locationSelect.options].forEach(option => {
+                    if (!option.value) {
+                        option.hidden = false;
+                        return;
+                    }
+                    option.hidden = warehouseId && option.dataset.warehouseId !== warehouseId;
+                });
+
+                if (locationSelect.selectedOptions[0]?.hidden) {
+                    locationSelect.value = '';
+                }
+            }
+
+            warehouseSelect.addEventListener('change', filterLocations);
+            tbody.querySelectorAll('tr').forEach(row => {
+                bindRow(row);
+                updateNewProductMode(row);
+            });
+            filterLocations();
+            calculate();
+        });
+    </script>
+}

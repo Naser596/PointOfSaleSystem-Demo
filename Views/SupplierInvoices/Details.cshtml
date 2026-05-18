@@ -1,0 +1,169 @@
+@model SupplierInvoiceDetailsViewModel
+@{
+    ViewData["Title"] = "Supplier Invoice Details";
+    var company = Model.Company;
+    var invoice = Model.Invoice;
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-file-invoice-dollar me-3"></i>@invoice.InvoiceNumber</h1>
+        <p>Supplier purchase invoice</p>
+    </div>
+    <div class="document-toolbar">
+        @if (!string.Equals(invoice.Status, "Posted", StringComparison.OrdinalIgnoreCase))
+        {
+            <form asp-action="Post" asp-route-id="@invoice.Id" method="post" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-scale-balanced me-2"></i>Post
+                </button>
+            </form>
+        }
+        <a asp-action="Print" asp-route-id="@invoice.Id" target="_blank" class="btn btn-outline-primary">
+            <i class="fas fa-print me-2"></i>Print
+        </a>
+        <a asp-action="DownloadPdf" asp-route-id="@invoice.Id" class="btn btn-success">
+            <i class="fas fa-file-pdf me-2"></i>PDF
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="document-layout">
+    <div class="document-paper">
+        <div class="document-paper-header">
+            <div class="d-flex align-items-center gap-3">
+                @if (!string.IsNullOrEmpty(company.LogoPath))
+                {
+                    <img src="@company.LogoPath" alt="Company logo" style="max-height: 56px;" />
+                }
+                <div>
+                    <h2 class="document-paper-title">Purchase Invoice</h2>
+                    <div class="text-muted">@company.DisplayName</div>
+                </div>
+            </div>
+            <div class="text-md-end">
+                <div class="document-block-value">@invoice.InvoiceNumber</div>
+                @if (!string.IsNullOrEmpty(invoice.SupplierInvoiceNumber))
+                {
+                    <div class="text-muted">Supplier no: @invoice.SupplierInvoiceNumber</div>
+                }
+                <div class="mt-2">
+                    <span class="status-pill">@invoice.Status</span>
+                    <span class="status-pill info ms-2">@invoice.MatchStatus</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="document-party-grid">
+            <div>
+                <div class="document-block-label">Company</div>
+                <div class="document-block-value">@company.DisplayName</div>
+                @if (!string.IsNullOrEmpty(company.LegalName))
+                {
+                    <div>@company.LegalName</div>
+                }
+                @if (!string.IsNullOrEmpty(company.Address))
+                {
+                    <div>@company.Address</div>
+                }
+                <div>@company.City @company.Country</div>
+                @if (!string.IsNullOrEmpty(company.TaxNumber))
+                {
+                    <div>Tax/VAT: @company.TaxNumber</div>
+                }
+                <div>@company.Phone @company.Email</div>
+            </div>
+            <div>
+                <div class="document-block-label">Supplier</div>
+                <div class="document-block-value">@invoice.SupplierName</div>
+                @if (!string.IsNullOrEmpty(invoice.SupplierTaxNumber))
+                {
+                    <div>Tax/VAT: @invoice.SupplierTaxNumber</div>
+                }
+                <div>@invoice.SupplierAddress</div>
+                <div>@invoice.SupplierPhone @invoice.SupplierEmail</div>
+            </div>
+        </div>
+
+        <div class="document-meta-grid">
+            <div>
+                <div class="document-block-label">Invoice Dates</div>
+                <div>Date: @invoice.InvoiceDate.ToString("yyyy-MM-dd")</div>
+                @if (invoice.DueDate.HasValue)
+                {
+                    <div>Due: @invoice.DueDate.Value.ToString("yyyy-MM-dd")</div>
+                }
+            </div>
+            <div>
+                <div class="document-block-label">Matching</div>
+                <div>Purchase Order: @(invoice.PurchaseOrder?.OrderNumber ?? "-")</div>
+                <div>Goods Receipt: @(invoice.GoodsReceipt?.ReceiptNumber ?? "-")</div>
+                <div>Match Status: @invoice.MatchStatus</div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Product</th>
+                        <th class="money-cell">Qty</th>
+                        <th class="money-cell">Unit Cost</th>
+                        <th class="money-cell">Tax %</th>
+                        <th class="money-cell">Tax</th>
+                        <th class="money-cell">Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in invoice.Items)
+                    {
+                        <tr>
+                            <td><strong>@item.Description</strong></td>
+                            <td>@(item.Product?.Name ?? "-")</td>
+                            <td class="money-cell">@item.Quantity.ToString("N3")</td>
+                            <td class="money-cell">@item.UnitCost.ToString("C")</td>
+                            <td class="money-cell">@item.TaxRate.ToString("N2")%</td>
+                            <td class="money-cell">@item.TaxAmount.ToString("C")</td>
+                            <td class="money-cell fw-semibold">@item.LineTotal.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (!string.IsNullOrEmpty(invoice.Notes) || !string.IsNullOrEmpty(company.InvoiceFooterNote))
+        {
+            <div class="form-section text-muted">
+                @if (!string.IsNullOrEmpty(invoice.Notes))
+                {
+                    <div><strong>Notes:</strong> @invoice.Notes</div>
+                }
+                @if (!string.IsNullOrEmpty(company.InvoiceFooterNote))
+                {
+                    <div>@company.InvoiceFooterNote</div>
+                }
+            </div>
+        }
+    </div>
+
+    <aside class="document-side-panel">
+        <div class="erp-surface">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-circle-info me-2"></i>Totals</h2>
+                    <p class="erp-surface-subtitle">Supplier invoice amount</p>
+                </div>
+            </div>
+            <div class="totals-panel">
+                <div class="totals-row"><span>Subtotal</span><strong>@invoice.SubTotal.ToString("C")</strong></div>
+                <div class="totals-row"><span>Tax</span><strong>@invoice.TaxAmount.ToString("C")</strong></div>
+                <div class="totals-row total"><span>Total</span><strong>@invoice.TotalAmount.ToString("C")</strong></div>
+            </div>
+        </div>
+    </aside>
+</div>

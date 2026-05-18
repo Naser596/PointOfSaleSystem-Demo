@@ -1,0 +1,156 @@
+@model SalesDocumentsDashboardViewModel
+@{
+    ViewData["Title"] = "Sales Documents";
+    var documentTypes = new[] { "Quote", "Order", "Invoice", "CreditNote" };
+    var statuses = new[] { "Draft", "Issued", "Accepted", "Closed", "Cancelled" };
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-file-invoice me-3"></i>Sales Documents</h1>
+        <p>Quotes, orders, invoices, and credit notes prepared for ERP sales workflow.</p>
+    </div>
+    <div class="page-actions">
+        <a href="/SalesDocuments/Receivables" class="btn btn-primary"><i class="fas fa-hand-holding-dollar me-2"></i>Receivables</a>
+        <a href="/Erp" class="btn btn-outline-secondary"><i class="fas fa-sitemap me-2"></i>ERP Core</a>
+    </div>
+</div>
+
+<div class="inline-action-card">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-plus me-2"></i>New Sales Document</h2>
+            <p class="erp-surface-subtitle">Create the document header first, then add lines from details.</p>
+        </div>
+    </div>
+    <div class="form-section">
+        <form asp-action="Create" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-2">
+                <label class="form-label">Type</label>
+                <select name="DocumentType" class="form-select">
+                    @foreach (var type in documentTypes)
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Number</label>
+                <input name="DocumentNumber" class="form-control" placeholder="Auto" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Customer</label>
+                <select name="CustomerId" class="form-select">
+                    <option value="">Walk-in / none</option>
+                    @foreach (var customer in Model.Customers)
+                    {
+                        <option value="@customer.Id">@customer.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date</label>
+                <input name="DocumentDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Due</label>
+                <input name="DueDate" type="date" class="form-control" />
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">Status</label>
+                <select name="Status" class="form-select">
+                    @foreach (var status in statuses)
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Subtotal</label>
+                <input name="SubTotal" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Tax</label>
+                <input name="TaxAmount" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Discount</label>
+                <input name="DiscountAmount" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Notes</label>
+                <input name="Notes" class="form-control" placeholder="Optional note" />
+            </div>
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-plus me-2"></i>Create Document
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="data-table-card">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-list me-2"></i>Recent Documents</h2>
+            <p class="erp-surface-subtitle">Status, payment, totals, and document actions.</p>
+        </div>
+    </div>
+    @if (Model.Documents.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Type</th>
+                        <th>Customer</th>
+                        <th>Lines</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                        <th class="money-cell">Total</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var document in Model.Documents)
+                    {
+                        <tr>
+                            <td><strong>@document.DocumentNumber</strong></td>
+                            <td><span class="status-pill info">@document.DocumentType</span></td>
+                            <td>@(document.Customer?.Name ?? "-")</td>
+                            <td>@document.Lines.Count</td>
+                            <td>@document.DocumentDate.ToString("MMM dd, yyyy")</td>
+                            <td><span class="status-pill">@document.Status</span></td>
+                            <td><span class="status-pill info">@document.PaymentStatus</span></td>
+                            <td class="money-cell">$@document.TotalAmount.ToString("N2")</td>
+                            <td class="text-end">
+                                <div class="table-actions">
+                                    <a asp-action="Details" asp-route-id="@document.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i>View
+                                    </a>
+                                    <a asp-action="Print" asp-route-id="@document.Id" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-print me-1"></i>Print
+                                    </a>
+                                    <a asp-action="DownloadPdf" asp-route-id="@document.Id" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-file-pdf me-1"></i>PDF
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="state-card">
+            <i class="fas fa-file-invoice fa-3x mb-3"></i>
+            <p>No sales documents yet.</p>
+        </div>
+    }
+</div>

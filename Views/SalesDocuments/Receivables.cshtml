@@ -1,0 +1,175 @@
+@model ReceivablesDashboardViewModel
+@{
+    ViewData["Title"] = "Receivables";
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-hand-holding-dollar me-3"></i>Receivables</h1>
+        <p>Open customer invoices, overdue balances, and AR aging by customer.</p>
+    </div>
+    <div class="page-actions">
+        <a href="/SalesDocuments" class="btn btn-outline-secondary">
+            <i class="fas fa-file-invoice me-2"></i>Sales Documents
+        </a>
+        <a href="/Reports" class="btn btn-primary">
+            <i class="fas fa-chart-line me-2"></i>Reports
+        </a>
+    </div>
+</div>
+
+<section class="dashboard-metric-grid" aria-label="Receivables metrics">
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-wallet"></i></div>
+        <div>
+            <div class="metric-card-value">$@Model.TotalOutstanding.ToString("N2")</div>
+            <div class="metric-card-label">Outstanding</div>
+            <div class="metric-card-note">All unpaid invoice balances</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-calendar-check"></i></div>
+        <div>
+            <div class="metric-card-value">$@Model.CurrentTotal.ToString("N2")</div>
+            <div class="metric-card-label">Current</div>
+            <div class="metric-card-note">Not overdue</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-calendar-minus"></i></div>
+        <div>
+            <div class="metric-card-value">$@((Model.Days1To30Total + Model.Days31To60Total).ToString("N2"))</div>
+            <div class="metric-card-label">1-60 days</div>
+            <div class="metric-card-note">Recently overdue</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div>
+            <div class="metric-card-value">$@Model.Days61PlusTotal.ToString("N2")</div>
+            <div class="metric-card-label">61+ days</div>
+            <div class="metric-card-note">High-risk collections</div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="data-table-card">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-file-invoice-dollar me-2"></i>Open Invoices</h2>
+                    <p class="erp-surface-subtitle">Invoices with remaining customer balance.</p>
+                </div>
+            </div>
+            @if (Model.OpenInvoices.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Invoice</th>
+                                <th>Customer</th>
+                                <th>Due</th>
+                                <th>Status</th>
+                                <th class="money-cell">Total</th>
+                                <th class="money-cell">Paid</th>
+                                <th class="money-cell">Balance</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var invoice in Model.OpenInvoices)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@invoice.DocumentNumber</strong>
+                                        <div class="table-entity-meta">@invoice.DocumentDate.ToString("MMM dd, yyyy")</div>
+                                    </td>
+                                    <td>@invoice.CustomerName</td>
+                                    <td>
+                                        @(invoice.DueDate?.ToString("MMM dd, yyyy") ?? "-")
+                                        @if (invoice.DaysOverdue > 0)
+                                        {
+                                            <div class="text-danger small fw-bold">@invoice.DaysOverdue day(s) overdue</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="status-pill @(invoice.DaysOverdue > 60 ? "danger" : invoice.DaysOverdue > 0 ? "warning" : "info")">
+                                            @invoice.AgingBucket
+                                        </span>
+                                        <div class="table-entity-meta">@invoice.PaymentStatus</div>
+                                    </td>
+                                    <td class="money-cell">$@invoice.TotalAmount.ToString("N2")</td>
+                                    <td class="money-cell">$@invoice.PaidAmount.ToString("N2")</td>
+                                    <td class="money-cell fw-bold">$@invoice.BalanceDue.ToString("N2")</td>
+                                    <td class="text-end">
+                                        <a href="/SalesDocuments/Details/@invoice.DocumentId" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i>View
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="state-card">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>No open customer invoices.</p>
+                    <a href="/SalesDocuments" class="btn btn-primary">Open Sales Documents</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="data-table-card">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-chart-pie me-2"></i>AR Aging By Customer</h2>
+                    <p class="erp-surface-subtitle">Customer balances grouped by aging bucket.</p>
+                </div>
+            </div>
+            @if (Model.Aging.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th class="money-cell">Current</th>
+                                <th class="money-cell">1-30</th>
+                                <th class="money-cell">31-60</th>
+                                <th class="money-cell">61+</th>
+                                <th class="money-cell">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.Aging)
+                            {
+                                <tr>
+                                    <td><strong>@row.CustomerName</strong></td>
+                                    <td class="money-cell">$@row.Current.ToString("N2")</td>
+                                    <td class="money-cell">$@row.Days1To30.ToString("N2")</td>
+                                    <td class="money-cell">$@row.Days31To60.ToString("N2")</td>
+                                    <td class="money-cell">$@row.Days61Plus.ToString("N2")</td>
+                                    <td class="money-cell fw-bold">$@row.Total.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="state-card">
+                    <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                    <p>No receivable aging data yet.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,295 @@
+@model FinanceDashboardViewModel
+@{
+    ViewData["Title"] = "Finance";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-chart-pie me-3"></i>Finance</h1>
+    <p>Revenue, tax, costs, refunds, and profit for this company</p>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label asp-for="DateFrom" class="form-label">From</label>
+                <input asp-for="DateFrom" type="date" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="DateTo" class="form-label">To</label>
+                <input asp-for="DateTo" type="date" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card success">
+            <i class="fas fa-sack-dollar stat-icon"></i>
+            <div class="stat-value">$@Model.NetRevenue.ToString("N2")</div>
+            <div class="stat-label">Net Revenue</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card primary">
+            <i class="fas fa-chart-line stat-icon"></i>
+            <div class="stat-value">$@Model.GrossProfit.ToString("N2")</div>
+            <div class="stat-label">Gross Profit</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card warning">
+            <i class="fas fa-file-invoice-dollar stat-icon"></i>
+            <div class="stat-value">$@Model.TaxCollected.ToString("N2")</div>
+            <div class="stat-label">Tax Collected</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="stat-card danger">
+            <i class="fas fa-rotate-left stat-icon"></i>
+            <div class="stat-value">$@Model.RefundedAmount.ToString("N2")</div>
+            <div class="stat-label">Refunds</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-chart-column me-2"></i>Revenue vs Profit
+            </div>
+            <div class="card-body">
+                <canvas id="financeChart" height="220"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-calculator me-2"></i>Profit Summary
+            </div>
+            <div class="card-body">
+                <div class="finance-row"><span>Gross revenue</span><strong>$@Model.GrossRevenue.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Refunds</span><strong class="text-danger">-$@Model.RefundedAmount.ToString("N2")</strong></div>
+                <div class="finance-row"><span>COGS</span><strong>-$@Model.CostOfGoodsSold.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Supplier spend</span><strong>$@Model.SupplierSpend.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Paid obligations</span><strong class="text-danger">-$@Model.PaidObligationExpense.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Open obligations</span><strong>$@Model.OpenObligationLiability.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Open payroll</span><strong>$@Model.PayrollLiability.ToString("N2")</strong></div>
+                <hr />
+                <div class="finance-row fs-5"><span>Net after paid obligations</span><strong>$@Model.NetProfitAfterPaidObligations.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Sales</span><strong>@Model.SaleCount</strong></div>
+                <div class="finance-row"><span>Returns</span><strong>@Model.ReturnCount</strong></div>
+                <div class="finance-row"><span>Average ticket</span><strong>$@Model.AverageTicket.ToString("N2")</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-user-clock me-2"></i>Payroll Obligations
+            </div>
+            <div class="card-body">
+                <form asp-action="AddPayroll" method="post" class="row g-2 mb-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="dateFrom" value="@Model.DateFrom.ToString("yyyy-MM-dd")" />
+                    <input type="hidden" name="dateTo" value="@Model.DateTo.ToString("yyyy-MM-dd")" />
+                    <div class="col-12">
+                        <input asp-for="PayrollInput.Description" name="Description" class="form-control" placeholder="Payroll, bonuses, contractor payments..." />
+                    </div>
+                    <div class="col-md-6">
+                        <input asp-for="PayrollInput.PeriodStart" name="PeriodStart" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <input asp-for="PayrollInput.PeriodEnd" name="PeriodEnd" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <input asp-for="PayrollInput.DueDate" name="DueDate" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <input asp-for="PayrollInput.Amount" name="Amount" type="number" min="0" step="0.01" class="form-control" placeholder="Amount" />
+                    </div>
+                    <div class="col-md-7">
+                        <select asp-for="PayrollInput.Status" name="Status" class="form-select">
+                            <option value="Open">Open</option>
+                            <option value="Accrued">Accrued</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-plus me-2"></i>Add
+                        </button>
+                    </div>
+                </form>
+
+                @if (Model.PayrollObligations.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th class="text-end">Amount</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var payroll in Model.PayrollObligations)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@payroll.Description</strong>
+                                            <div class="small text-muted">@payroll.PeriodStart.ToString("MMM dd") - @payroll.PeriodEnd.ToString("MMM dd")</div>
+                                        </td>
+                                        <td class="text-end">$@payroll.Amount.ToString("N2")</td>
+                                        <td><span class="badge bg-secondary">@payroll.Status</span></td>
+                                        <td class="text-end">
+                                            @if (!string.Equals(payroll.Status, "Paid", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <form asp-action="MarkPayrollPaid" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@payroll.Id" />
+                                                    <input type="hidden" name="dateFrom" value="@Model.DateFrom.ToString("yyyy-MM-dd")" />
+                                                    <input type="hidden" name="dateTo" value="@Model.DateTo.ToString("yyyy-MM-dd")" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">Paid</button>
+                                                </form>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted small">No payroll obligations in this period.</div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-calendar-alt me-2"></i>Monthly Profit Report
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th class="text-end">Revenue</th>
+                                <th class="text-end">COGS</th>
+                                <th class="text-end">Paid Obligations</th>
+                                <th class="text-end">Net Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var month in Model.MonthlyProfitReport)
+                            {
+                                <tr>
+                                    <td><strong>@month.Month</strong></td>
+                                    <td class="text-end">$@month.Revenue.ToString("N2")</td>
+                                    <td class="text-end">$@month.CostOfGoodsSold.ToString("N2")</td>
+                                    <td class="text-end">$@month.PaidObligations.ToString("N2")</td>
+                                    <td class="text-end fw-bold">$@month.NetProfit.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-users me-2"></i>User Performance
+    </div>
+    <div class="card-body p-0">
+        @if (Model.UserPerformance.Any())
+        {
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th class="text-center">Sales</th>
+                        <th class="text-end">Revenue</th>
+                        <th class="text-end">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.UserPerformance)
+                    {
+                        <tr>
+                            <td><strong>@user.CashierName</strong></td>
+                            <td class="text-center">@user.SaleCount</td>
+                            <td class="text-end">$@user.Revenue.ToString("N2")</td>
+                            <td class="text-end fw-bold">$@user.Profit.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                <p>No finance data for this period.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const financePoints = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyPoints));
+        const financeCtx = document.getElementById('financeChart');
+        if (financeCtx) {
+            new Chart(financeCtx, {
+                type: 'bar',
+                data: {
+                    labels: financePoints.map(x => x.Label),
+                    datasets: [
+                        {
+                            label: 'Revenue',
+                            data: financePoints.map(x => x.Revenue),
+                            backgroundColor: 'rgba(16, 185, 129, 0.72)',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Profit',
+                            data: financePoints.map(x => x.Profit),
+                            backgroundColor: 'rgba(59, 130, 246, 0.72)',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => '$' + Number(value).toLocaleString() }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+}

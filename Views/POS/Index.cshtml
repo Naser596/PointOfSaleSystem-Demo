@@ -1,109 +1,146 @@
 @model List<Product>
+@inject WebApplication3.Services.ICategoryService CategoryService
 @{
     ViewData["Title"] = "POS Terminal";
+    var categories = await CategoryService.GetActiveCategoriesAsync();
 }
 
 @Html.AntiForgeryToken()
 
-<div class="page-header">
-    <h1><i class="fas fa-cash-register me-3"></i>POS Terminal</h1>
-    <p>Select products and complete the sale</p>
-</div>
-
-<div class="row">
-    <!-- Products Grid -->
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <span class="me-3"><i class="fas fa-box me-2"></i>Available Products</span>
-                    <a href="/Sales/ExportDailyReport" class="btn-report text-white text-decoration-none shadow-sm py-1 px-3" style="font-size: 0.9rem;" title="Daily Report">
-                        <i class="fas fa-file-excel me-2"></i>Daily Report
-                    </a>
-                </div>
-                <div class="d-flex gap-2">
-                    <div class="position-relative">
-                        <input type="text" id="customerSearch" class="form-control form-control-sm" placeholder="Select Customer (Optional)..." style="width: 200px;">
-                        <input type="hidden" id="selectedCustomerId">
-                        <div id="customerResults" class="list-group position-absolute w-100 shadow-sm" style="display:none; z-index: 1000; top: 100%;"></div>
-                    </div>
-                    <input type="text" id="searchProduct" class="form-control form-control-sm w-auto" placeholder="Search products..." />
-                </div>
-            </div>
-            <div class="card-body">
-                @if (Model != null && Model.Any())
-                {
-                    <div class="product-grid" id="productGrid">
-                        @foreach (var product in Model)
-                        {
-                            <div class="product-card @(product.Stock <= 0 ? "opacity-50" : "")" 
-                                 data-id="@product.Id" data-name="@product.Name" data-price="@product.Price" data-stock="@product.Stock" 
-                                 style="@(product.Stock <= 0 ? "pointer-events: none; background-color: #f8f9fa;" : "")"
-                                 onclick="addToCart(@product.Id, '@product.Name', @product.Price, @product.Stock)">
-                                <div class="mb-2" style="height: 120px; overflow: hidden; border-radius: 8px;">
-                                    @if (!string.IsNullOrEmpty(product.ImagePath))
-                                    {
-                                        <img src="@product.ImagePath" class="w-100 h-100" style="object-fit: cover;" alt="@product.Name" />
-                                    }
-                                    else
-                                    {
-                                        <div class="bg-light w-100 h-100 d-flex align-items-center justify-content-center">
-                                            <i class="fas fa-cube fa-3x text-primary"></i>
-                                        </div>
-                                    }
-                                </div>
-                                <div class="product-name">@product.Name</div>
-                                <div class="product-price">$@product.Price.ToString("N2")</div>
-                                <div class="product-stock">
-                                    @if(product.Stock > 0) {
-                                        <span>@product.Stock in stock</span>
-                                    } else {
-                                        <span class="text-danger fw-bold">Out of Stock</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center py-5 text-muted">
-                        <i class="fas fa-box-open fa-3x mb-3"></i>
-                        <p>No products available. Add products first!</p>
-                        <a href="/Products/Create" class="btn btn-success">Add Product</a>
-                    </div>
-                }
-            </div>
-        </div>
+<div class="page-header pos-page-header">
+    <div>
+        <h1><i class="fas fa-cash-register me-3"></i>POS Terminal</h1>
+        <p>Fast product lookup, live cart, customer selection, and offline queue control</p>
     </div>
-
-    <!-- Cart -->
-    <div class="col-lg-4">
-        <div class="cart-container">
-            <div class="cart-header">
-                <i class="fas fa-shopping-cart me-2"></i>Current Sale
-            </div>
-            <div class="cart-items" id="cartItems">
-                <div class="text-center py-4 text-muted" id="emptyCart">
-                    <i class="fas fa-shopping-basket fa-2x mb-2"></i>
-                    <p class="mb-0">Cart is empty</p>
-                </div>
-            </div>
-            <div class="cart-total">
-                <div class="d-flex justify-content-between mb-3">
-                    <span class="total-label">TOTAL</span>
-                    <span class="total-value" id="cartTotal">$0.00</span>
-                </div>
-                <button class="btn btn-success w-100 mb-2" id="completeSaleBtn" onclick="showPaymentModal()" disabled>
-                    <i class="fas fa-check me-2"></i>Complete Sale
-                </button>
-                <button class="btn btn-outline-danger w-100" onclick="clearCart()">
-                    <i class="fas fa-trash me-2"></i>Clear Cart
-                </button>
-            </div>
-        </div>
+    <div class="pos-header-actions">
+        <a href="/Sales" class="btn btn-outline-secondary">
+            <i class="fas fa-history me-2"></i>Sales
+        </a>
+        <a href="/Sales/ExportDailyReport" class="btn btn-success">
+            <i class="fas fa-file-excel me-2"></i>Daily Report
+        </a>
     </div>
 </div>
+
+<div id="offlineQueueBanner" class="alert alert-warning d-none align-items-center justify-content-between">
+    <div>
+        <i class="fas fa-cloud-upload-alt me-2"></i>
+        <strong id="offlineQueueCount">0</strong> sale(s) waiting to sync from this browser.
+    </div>
+    <a href="/OfflineSync" class="btn btn-sm btn-outline-dark">Review</a>
+</div>
+
+<div class="pos-terminal-layout">
+    <section class="pos-products-panel">
+        <div class="pos-toolbar">
+            <div class="pos-search">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="text" id="searchProduct" class="form-control" placeholder="Search name, SKU, barcode..." autocomplete="off" />
+                <button class="btn btn-outline-secondary" type="button" onclick="startPosScanner()" title="Scan Barcode">
+                    <i class="fas fa-barcode"></i>
+                </button>
+            </div>
+            <div class="pos-toolbar-meta">
+                <span><i class="fas fa-layer-group me-1"></i>@categories.Count categories</span>
+                <span><i class="fas fa-keyboard me-1"></i>F1 search</span>
+            </div>
+        </div>
+
+        <div class="pos-category-strip" id="posCategoryList">
+                    <button type="button" class="pos-category-pill active" data-category-id="">
+                        <i class="fas fa-border-all me-1"></i>All
+                    </button>
+                    @foreach (var category in categories)
+                    {
+                        <button type="button" class="pos-category-pill" data-category-id="@category.Id">
+                            <i class="@(category.IconClass ?? "fas fa-folder") me-1"></i>@category.Name
+                        </button>
+                    }
+        </div>
+
+            <div id="pos-scanner-container" class="pos-scanner-panel" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold"><i class="fas fa-camera me-1"></i>Scan Product Barcode</span>
+                    <button type="button" class="btn-close" onclick="stopPosScanner()" aria-label="Close"></button>
+                </div>
+                <div id="pos-reader" style="width: 100%; max-width: 400px; margin: 0 auto;"></div>
+            </div>
+
+        <div class="pos-product-surface">
+                <div class="product-grid-container" id="productGridContainer" aria-live="polite">
+                    @if (Model != null && Model.Any())
+                    {
+                        <partial name="_PosProductGrid" model="Model" />
+                    }
+                    else
+                    {
+                        <div class="pos-empty-state" id="initialPlaceholder">
+                            <i class="fas fa-box-open"></i>
+                            <p>No products loaded.</p>
+                        </div>
+                    }
+                </div>
+        </div>
+    </section>
+
+    <aside class="pos-sale-panel">
+            <div class="pos-sale-header">
+                <div>
+                    <span class="section-kicker">Current sale</span>
+                    <h2><i class="fas fa-shopping-cart me-2"></i>Cart</h2>
+                </div>
+                <span class="pos-cart-count" id="cartCount">0 items</span>
+            </div>
+
+            <div class="pos-customer-box">
+                <label class="form-label small text-muted mb-1">Customer</label>
+                <div class="position-relative">
+                    <input type="text" id="customerSearch" class="form-control" placeholder="Walk-in customer" autocomplete="off" />
+                    <input type="hidden" id="selectedCustomerId" />
+                    <div id="customerResults" class="list-group position-absolute w-100 shadow-sm" style="z-index: 1040; display:none;"></div>
+                </div>
+            </div>
+
+            <div class="pos-cart-items" id="cartItems">
+                <div class="pos-empty-cart" id="emptyCart">
+                    <i class="fas fa-basket-shopping"></i>
+                    <span>No items added</span>
+                </div>
+            </div>
+
+            <div class="pos-discount-box">
+            <div class="input-group input-group-sm">
+                <input type="text" id="discountCode" class="form-control" placeholder="Discount Code">
+                <button class="btn btn-outline-secondary" type="button" onclick="verifyDiscount()">Apply</button>
+            </div>
+            <div id="discountInfo" class="text-success small fw-bold mt-2" style="display:none;"></div>
+            </div>
+
+            <div class="pos-sale-summary">
+                <div class="pos-summary-row">
+                    <span>Subtotal</span>
+                    <strong id="cartSubtotal">$0.00</strong>
+                </div>
+                <div class="pos-summary-row">
+                    <span>Discount</span>
+                    <strong id="cartDiscount">$0.00</strong>
+                </div>
+                <div class="pos-summary-total">
+                    <span>Total</span>
+                    <strong id="cartTotal">$0.00</strong>
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-success btn-lg" id="completeSaleBtn" onclick="showPaymentModal()" disabled>
+                        <i class="fas fa-check me-2"></i>Complete Sale
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="clearCart()">
+                        <i class="fas fa-trash me-2"></i>Clear Cart
+                    </button>
+                </div>
+            </div>
+    </aside>
+</div>
+
 
 <!-- Payment Modal -->
 <div class="modal fade" id="paymentModal" tabindex="-1">
@@ -148,7 +185,7 @@
                     <i class="fas fa-print me-2"></i>Print Receipt
                 </button>
                 <div class="d-grid">
-                     <button class="btn btn-success" onclick="location.reload()">New Sale</button>
+                    <button class="btn btn-success" onclick="location.reload()">New Sale</button>
                 </div>
             </div>
         </div>
@@ -156,421 +193,782 @@
 </div>
 
 @section Scripts {
-<script>
-    let cart = [];
-    let paymentModal;
-    let successModal;
-    let lastSaleId = 0;
-    const CART_KEY = 'pos_cart_v1';
+    <script>
+        let cart = [];
+        let paymentModal;
+        let successModal;
+        let lastSaleId = 0;
+        const CART_KEY = 'pos_cart_v1';
+        const PENDING_SALES_KEY = 'pos_pending_sales_v1';
+        
+        // Filtering State
+        let currentCategoryId = '';
+        let searchTimer;
 
-
-    function loadCart() {
-        const savedCart = localStorage.getItem(CART_KEY);
-        if (savedCart) {
+        function getPendingSales() {
             try {
-                cart = JSON.parse(savedCart);
-                updateCartDisplay();
-            } catch (e) {
-                console.error("Error loading cart", e);
-                cart = [];
+                return JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
+            } catch {
+                return [];
             }
         }
-    }
 
-    function saveCart() {
-        localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    }
-
-    function printLastReceipt() {
-        if(lastSaleId > 0) {
-            window.open('/Sales/Receipt/' + lastSaleId, '_blank');
-        }
-    }
-
-    function addToCart(id, name, price, stock) {
-        if (stock <= 0) {
-            showToast('Item is out of stock!', 'error');
-            return;
+        function savePendingSales(items) {
+            localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(items));
+            updatePendingQueueBanner();
         }
 
-        const existingItem = cart.find(item => item.id === id);
-        
-        if (existingItem) {
-            if (existingItem.quantity >= stock) {
-                showToast('Cannot add more. Stock limit reached!', 'warning');
-                return;
-            }
-            existingItem.quantity++;
-        } else {
-            cart.push({ id, name, price, quantity: 1, stock });
-        }
-        
-        saveCart();
-        updateCartDisplay();
-    }
+        function updatePendingQueueBanner() {
+            const pending = getPendingSales();
+            const banner = document.getElementById('offlineQueueBanner');
+            const count = document.getElementById('offlineQueueCount');
+            if (!banner || !count) return;
 
-    function removeFromCart(id) {
-        cart = cart.filter(item => item.id !== id);
-        saveCart();
-        updateCartDisplay();
-    }
-
-    function updateQuantity(id, change) {
-        const item = cart.find(item => item.id === id);
-        if (item) {
-            item.quantity += change;
-            if (item.quantity <= 0) {
-                removeFromCart(id);
-                return; // already saved in remove
-            } else if (item.quantity > item.stock) {
-                item.quantity = item.stock;
-                showToast('Cannot add more. Stock limit reached!', 'warning');
-            }
-        }
-        saveCart();
-        updateCartDisplay();
-    }
-
-    function clearCart() {
-        if(confirm('Are you sure you want to clear the cart?')) {
-            cart = [];
-            saveCart();
-            updateCartDisplay();
-        }
-    }
-
-    function updateCartDisplay() {
-        const cartItems = document.getElementById('cartItems');
-        const emptyCart = document.getElementById('emptyCart');
-        const cartTotal = document.getElementById('cartTotal');
-        const completeSaleBtn = document.getElementById('completeSaleBtn');
-        const paymentTotal = document.getElementById('paymentTotal');
-
-        if (cart.length === 0) {
-            cartItems.innerHTML = `
-                <div class="text-center py-4 text-muted" id="emptyCart">
-                    <i class="fas fa-shopping-basket fa-2x mb-2"></i>
-                    <p class="mb-0">Cart is empty</p>
-                </div>
-            `;
-            cartTotal.innerText = '$0.00';
-            if(paymentTotal) paymentTotal.innerText = '$0.00';
-            completeSaleBtn.disabled = true;
-            return;
+            count.textContent = pending.length;
+            banner.classList.toggle('d-none', pending.length === 0);
+            banner.classList.toggle('d-flex', pending.length > 0);
         }
 
-        // Hide empty message (by not appending it or explicitly hiding if it's there)
-        // Re-render all items
-        cartItems.innerHTML = '';
-        
-        let total = 0;
-
-        cart.forEach(item => {
-            const itemTotal = item.price * item.quantity;
-            total += itemTotal;
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'card mb-2 border-0 shadow-sm';
-            itemDiv.innerHTML = `
-                <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                    <div style="flex: 1;">
-                        <div class="fw-bold text-truncate" style="max-width: 150px;">${item.name}</div>
-                        <div class="text-muted small">$${item.price.toFixed(2)} x ${item.quantity}</div>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <div class="btn-group btn-group-sm me-2">
-                            <button class="btn btn-secondary border-0" onclick="updateQuantity(${item.id}, -1)">-</button>
-                            <span class="btn btn-light disabled text-dark border-top border-bottom" style="width: 40px;">${item.quantity}</span>
-                            <button class="btn btn-secondary border-0" onclick="updateQuantity(${item.id}, 1)">+</button>
-                        </div>
-                        <div class="fw-bold me-3" style="width: 60px; text-align: right;">$${itemTotal.toFixed(2)}</div>
-                        <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.id})">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            cartItems.appendChild(itemDiv);
-        });
-
-        cartTotal.innerText = '$' + total.toFixed(2);
-        if(paymentTotal) paymentTotal.innerText = '$' + total.toFixed(2);
-        completeSaleBtn.disabled = false;
-    }
-// ...
-    function showPaymentModal() {
-        if (cart.length === 0) {
-            showToast('Cart is empty!', 'warning');
-            return;
-        }
-        paymentModal.show();
-    }
-
-
-    let customerSearch;
-    let customerResults;
-    let selectedCustomerId;
-
-    document.addEventListener('DOMContentLoaded', function() {
-        paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-        successModal = new bootstrap.Modal(document.getElementById('successModal'));
-        
-        // Initialize Customer Search Elements
-        customerSearch = document.getElementById('customerSearch');
-        customerResults = document.getElementById('customerResults');
-        selectedCustomerId = document.getElementById('selectedCustomerId');
-
-        if(customerSearch) {
-            customerSearch.addEventListener('input', function(e) {
-                const query = e.target.value;
-                if(query.length < 2) {
-                    customerResults.style.display = 'none';
-                    return;
-                }
-
-                fetch(`/Customers/Search?q=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        customerResults.innerHTML = '';
-                        if(data.length > 0) {
-                            data.forEach(c => {
-                                const item = document.createElement('a');
-                                item.href = '#';
-                                item.className = 'list-group-item list-group-item-action small';
-                                item.textContent = c.text;
-                                item.onclick = (e) => {
-                                    e.preventDefault();
-                                    selectCustomer(c.id, c.text);
-                                };
-                                customerResults.appendChild(item);
-                            });
-                            customerResults.style.display = 'block';
-                        } else {
-                            customerResults.style.display = 'none';
-                        }
-                    });
+        function queuePendingSale(saleRequest, reason) {
+            const pending = getPendingSales();
+            pending.push({
+                clientId: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                queuedAt: new Date().toISOString(),
+                paymentMethod: saleRequest.PaymentMethod || 'Cash',
+                customerId: saleRequest.CustomerId,
+                discountCode: saleRequest.DiscountCode,
+                items: saleRequest.Items,
+                lastError: reason || ''
             });
-
-            // Close search results when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!customerSearch.contains(e.target) && !customerResults.contains(e.target)) {
-                    customerResults.style.display = 'none';
-                }
-            });
+            savePendingSales(pending);
+            showToast('Sale saved offline. Sync it when connection is back.', 'warning');
         }
-        
-        loadCart();
-    });
 
-    function selectCustomer(id, name) {
-        selectedCustomerId.value = id;
-        customerSearch.value = name;
-        customerResults.style.display = 'none';
-        
-        // Visual feedback
-        customerSearch.classList.add('is-valid');
-        customerSearch.disabled = true;
-        
-        // Add clear button logic if needed, or simple reset:
-        const clearBtn = document.createElement('span');
-        clearBtn.innerHTML = '<i class="fas fa-times text-danger ms-2" style="cursor:pointer"></i>';
-        clearBtn.onclick = () => {
-             selectedCustomerId.value = '';
-             customerSearch.value = '';
-             customerSearch.classList.remove('is-valid');
-             customerSearch.disabled = false;
-             clearBtn.remove();
-        };
-        customerSearch.parentNode.appendChild(clearBtn);
-    }
+        async function syncPendingSales(showResult) {
+            const pending = getPendingSales();
+            if (pending.length === 0 || !navigator.onLine) return;
 
-    // Fallback for showLoading/hideLoading if site.js fails or is cached
-    if (typeof showLoading === 'undefined') {
-        window.showLoading = function(text) {
-             console.log('Fallback showLoading:', text);
-             const overlay = document.getElementById('loadingOverlay');
-             if(overlay) { 
-                 overlay.style.display = 'flex';
-                 const txt = overlay.querySelector('.loading-text');
-                 if(txt) txt.textContent = text;
-             }
-        };
-    }
-    if (typeof hideLoading === 'undefined') {
-        window.hideLoading = function() {
-             const overlay = document.getElementById('loadingOverlay');
-             if(overlay) overlay.style.display = 'none';
-        };
-    }
-
-    // Update ProcessPayment to include CustomerId
-    function processPayment(method) {
-        try {
-            // Validate stock logic again client-side just in case
-            for (let item of cart) {
-                if (item.quantity > item.stock) {
-                    showToast(`Insufficient stock for ${item.name}. Available: ${item.stock}`, 'error');
-                    return;
-                }
-            }
-
-            if(paymentModal) paymentModal.hide();
-            
-            const customerId = (selectedCustomerId && selectedCustomerId.value) ? parseInt(selectedCustomerId.value) : null;
             const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
             const token = tokenElement ? tokenElement.value : '';
 
-            if (method === 'Card') {
-                // CARD FLOW: Post to CardTerminal
-                const cardForm = document.getElementById('cardTerminalForm');
-                const cardInput = document.getElementById('cardCartJson');
-                
-                if(!cardForm || !cardInput) {
-                     showToast('Card terminal form missing', 'error');
-                     return;
-                }
-
-                // Map cart to SaleItemRequest format match
-                const requestItems = cart.map(item => ({
-                    ProductId: item.id,
-                    Quantity: item.quantity
-                }));
-                
-                cardInput.value = JSON.stringify(requestItems);
-                cardForm.submit();
-            } 
-            else {
-                // CASH FLOW
-                const saleRequest = {
-                    Items: cart.map(item => ({
-                        ProductId: item.id,
-                        Quantity: item.quantity
-                    })),
-                    PaymentMethod: method,
-                    CustomerId: customerId
-                };
-
-                showLoading('Processing Sale...');
-
-                fetch('/POS/ProcessSale', {
+            try {
+                const response = await fetch('/POS/SyncPendingSales', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'RequestVerificationToken': token
                     },
-                    body: JSON.stringify(saleRequest)
-                })
-                .then(async response => {
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Server Error (${response.status}): ${errorText.substring(0, 100)}...`);
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    body: JSON.stringify(pending)
+                });
+
+                if (!response.ok) return;
+
+                const result = await response.json();
+                const failedIds = new Set(result.results.filter(x => !x.success).map(x => x.clientId));
+                const failures = new Map(result.results.filter(x => !x.success).map(x => [x.clientId, x.message]));
+                const remaining = pending
+                    .filter(item => failedIds.has(item.clientId))
+                    .map(item => ({ ...item, lastError: failures.get(item.clientId) || 'Sync failed' }));
+
+                savePendingSales(remaining);
+                if (showResult) {
+                    showToast(`${pending.length - remaining.length} offline sale(s) synced. ${remaining.length} pending.`, remaining.length ? 'warning' : 'success');
+                }
+            } catch {
+                updatePendingQueueBanner();
+            }
+        }
+
+        function loadCart() {
+            const savedCart = localStorage.getItem(CART_KEY);
+            if (savedCart) {
+                try {
+                    cart = JSON.parse(savedCart);
+                    updateCartDisplay();
+                } catch (e) {
+                    console.error("Error loading cart", e);
+                    cart = [];
+                }
+            }
+        }
+
+        function saveCart() {
+            localStorage.setItem(CART_KEY, JSON.stringify(cart));
+        }
+
+        function printLastReceipt() {
+            if (lastSaleId > 0) {
+                window.open('/Sales/Receipt/' + lastSaleId, '_blank');
+            }
+        }
+
+        function addToCart(id, name, price, stock) {
+            if (stock <= 0) {
+                showToast('Item is out of stock!', 'error');
+                return;
+            }
+
+            const existingItem = cart.find(item => item.id === id);
+
+            if (existingItem) {
+                if (existingItem.quantity >= stock) {
+                    showToast('Cannot add more. Stock limit reached!', 'warning');
+                    return;
+                }
+                existingItem.quantity++;
+            } else {
+                cart.push({ id, name, price, quantity: 1, stock });
+            }
+
+            saveCart();
+            updateCartDisplay();
+        }
+
+        function addProductCardToCart(card) {
+            addToCart(
+                parseInt(card.dataset.id),
+                card.dataset.name,
+                parseFloat(card.dataset.price),
+                parseInt(card.dataset.stock)
+            );
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            saveCart();
+            updateCartDisplay();
+        }
+
+        function updateQuantity(id, change) {
+            const item = cart.find(item => item.id === id);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    removeFromCart(id);
+                    return; // already saved in remove
+                } else if (item.quantity > item.stock) {
+                    item.quantity = item.stock;
+                    showToast('Cannot add more. Stock limit reached!', 'warning');
+                }
+            }
+            saveCart();
+            updateCartDisplay();
+        }
+
+        function clearCart() {
+            if (confirm('Are you sure you want to clear the cart?')) {
+                cart = [];
+                saveCart();
+                updateCartDisplay();
+                
+                // Reset Grid and Filters
+                document.getElementById('searchProduct').value = '';
+                document.querySelectorAll('#posCategoryList button').forEach(b => b.classList.remove('active'));
+                const allCategory = document.querySelector('#posCategoryList button[data-category-id=""]');
+                if (allCategory) allCategory.classList.add('active');
+                currentCategoryId = '';
+                loadProducts();
+            }
+        }
+
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cartItems');
+            const cartTotal = document.getElementById('cartTotal');
+            const cartSubtotal = document.getElementById('cartSubtotal');
+            const cartDiscount = document.getElementById('cartDiscount');
+            const cartCount = document.getElementById('cartCount');
+            const completeSaleBtn = document.getElementById('completeSaleBtn');
+            const paymentTotal = document.getElementById('paymentTotal');
+            const discountInfo = document.getElementById('discountInfo');
+
+            if (cart.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="pos-empty-cart" id="emptyCart">
+                        <i class="fas fa-basket-shopping"></i>
+                        <span>No items added</span>
+                    </div>`;
+                cartTotal.innerText = '$0.00';
+                if (cartSubtotal) cartSubtotal.innerText = '$0.00';
+                if (cartDiscount) cartDiscount.innerText = '$0.00';
+                if (cartCount) cartCount.innerText = '0 items';
+                if (paymentTotal) paymentTotal.innerText = '$0.00';
+                completeSaleBtn.disabled = true;
+                return;
+            }
+
+            cartItems.innerHTML = '';
+
+            let total = 0;
+
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'pos-cart-line';
+
+                itemDiv.innerHTML = `
+                    <div class="pos-cart-line-main">
+                        <div>
+                            <strong title="${item.name}">${item.name}</strong>
+                            <span>$${item.price.toFixed(2)} each</span>
+                        </div>
+                        <button class="btn btn-link text-danger p-0" onclick="removeFromCart(${item.id})" title="Remove">
+                                <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="pos-cart-line-controls">
+                        <div class="input-group input-group-sm pos-qty-control">
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, -1)">-</button>
+                            <span class="input-group-text">${item.quantity}</span>
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${item.id}, 1)">+</button>
+                        </div>
+                        <strong>$${itemTotal.toFixed(2)}</strong>
+                    </div>
+                `;
+                cartItems.appendChild(itemDiv);
+            });
+
+            // Calculate Discount
+            let finalTotal = total;
+            let discountAmount = 0;
+
+            if (appliedDiscount) {
+                if (appliedDiscount.minOrder && total < appliedDiscount.minOrder) {
+                    if (discountInfo) {
+                        discountInfo.innerText = `Min order of $${appliedDiscount.minOrder} required.`;
+                        discountInfo.classList.replace('text-success', 'text-warning');
+                        discountInfo.style.display = 'block';
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    hideLoading();
-                    if (data.success) {
-                        lastSaleId = data.saleId;
-                        document.getElementById('saleMessage').textContent = `Sale #${data.saleNumber} completed successfully via ${method}.`;
-                        if(successModal) successModal.show();
-                        
-                        // Clear cart on success
-                        cart = []; 
-                        saveCart();
-                        updateCartDisplay();
-                        
-                        // Reset Customer
-                        if(selectedCustomerId && selectedCustomerId.value) {
-                             selectedCustomerId.value = '';
-                             if(customerSearch) {
-                                 customerSearch.value = '';
-                                 customerSearch.disabled = false;
-                                 customerSearch.classList.remove('is-valid');
-                                 const clearBtn = customerSearch.parentNode.querySelector('.fa-times');
-                                 if(clearBtn) clearBtn.remove();
-                             }
-                        }
+                } else {
+                    if (discountInfo) {
+                        discountInfo.classList.replace('text-warning', 'text-success');
+                        discountInfo.innerText = `Applied: ${appliedDiscount.code} (${appliedDiscount.type === 'Percentage' ? appliedDiscount.value + '%' : '$' + appliedDiscount.value} OFF)`;
+                        discountInfo.style.display = 'block';
+                    }
+
+                    if (appliedDiscount.type === 'Percentage') {
+                        discountAmount = total * (appliedDiscount.value / 100);
                     } else {
-                        console.error('Server returned failure:', data);
-                        showToast('Sale Failed: ' + data.message, 'error');
+                        discountAmount = appliedDiscount.value;
                     }
-                })
-                .catch(error => {
-                    hideLoading();
-                    console.error('Transaction Error:', error);
-                    showToast('An error occurred: ' + error.message, 'error');
+                    if (discountAmount > total) discountAmount = total;
+                    finalTotal = total - discountAmount;
+                }
+            } else {
+                if (discountInfo) discountInfo.style.display = 'none';
+            }
+
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            if (cartSubtotal) cartSubtotal.innerText = '$' + total.toFixed(2);
+            if (cartDiscount) cartDiscount.innerText = discountAmount > 0 ? '-$' + discountAmount.toFixed(2) : '$0.00';
+            if (cartCount) cartCount.innerText = `${totalItems} ${totalItems === 1 ? 'item' : 'items'}`;
+            cartTotal.innerText = '$' + finalTotal.toFixed(2);
+
+            if (paymentTotal) paymentTotal.innerText = '$' + finalTotal.toFixed(2);
+            completeSaleBtn.disabled = false;
+        }
+        
+        function showPaymentModal() {
+            if (cart.length === 0) {
+                showToast('Cart is empty!', 'warning');
+                return;
+            }
+            paymentModal.show();
+        }
+
+
+        let customerSearch;
+        let customerResults;
+        let selectedCustomerId;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+            successModal = new bootstrap.Modal(document.getElementById('successModal'));
+
+            // Initialize Customer Search Elements
+            customerSearch = document.getElementById('customerSearch');
+            customerResults = document.getElementById('customerResults');
+            selectedCustomerId = document.getElementById('selectedCustomerId');
+
+            if (customerSearch) {
+                customerSearch.addEventListener('input', function (e) {
+                    const query = e.target.value;
+                    if (query.length < 2) {
+                        customerResults.style.display = 'none';
+                        return;
+                    }
+
+                    fetch(`/Customers/Search?q=${encodeURIComponent(query)}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            customerResults.innerHTML = '';
+                            if (data.length > 0) {
+                                data.forEach(c => {
+                                    const item = document.createElement('a');
+                                    item.href = '#';
+                                    item.className = 'list-group-item list-group-item-action small';
+                                    item.textContent = c.text;
+                                    item.onclick = (e) => {
+                                        e.preventDefault();
+                                        selectCustomer(c.id, c.text);
+                                    };
+                                    customerResults.appendChild(item);
+                                });
+                                customerResults.style.display = 'block';
+                            } else {
+                                customerResults.style.display = 'none';
+                            }
+                        });
+                });
+
+                // Close search results when clicking outside
+                document.addEventListener('click', function (e) {
+                    if (!customerSearch.contains(e.target) && !customerResults.contains(e.target)) {
+                        customerResults.style.display = 'none';
+                    }
                 });
             }
-        } catch (err) {
-            console.error(err);
-            showToast('Client Error: ' + err.message, 'error');
-        }
-    }
 
+            loadCart();
+            updatePendingQueueBanner();
+            syncPendingSales(false);
+            window.addEventListener('online', () => syncPendingSales(true));
+            
+            // --- NEW: Category and Search Logic ---
 
-    // Keyboard Shortcuts
-    document.addEventListener('keydown', function(e) {
-        // F1: Focus Search
-        if (e.key === 'F1') {
-            e.preventDefault();
-            document.getElementById('searchProduct').focus();
-        }
-        // F2: Cash Payment
-        else if (e.key === 'F2') {
-            e.preventDefault();
-            if(!paymentModal._isShown && cart.length > 0) {
-                showPaymentModal();
-            } else if (paymentModal._isShown) {
-                processPayment('Cash');
-            }
-        }
-        // F3: Card Payment
-        else if (e.key === 'F3') {
-            e.preventDefault();
-            if(!paymentModal._isShown && cart.length > 0) {
-                showPaymentModal();
-            } else if (paymentModal._isShown) {
-                processPayment('Card');
-            }
-        }
-        // F4: Clear Cart
-        else if (e.key === 'F4') {
-            e.preventDefault();
-            clearCart();
-        }
-        // Esc: Close Modals
-        else if (e.key === 'Escape') {
-             if (paymentModal._isShown) paymentModal.hide();
-             if (successModal._isShown) successModal.hide();
-        }
-        // Enter: Confirm Payment (only if modal is open)
-        else if (e.key === 'Enter') {
-            if (paymentModal._isShown) {
-                e.preventDefault();
-                processPayment('Cash'); // Default to Cash on Enter for speed
-            }
-        }
-    });
+            // Category Clicks
+            document.querySelectorAll('#posCategoryList button').forEach(btn => {
+                btn.addEventListener('click', function() {
+                   // Update Active UI
+                   document.querySelectorAll('#posCategoryList button').forEach(b => b.classList.remove('active'));
+                   this.classList.add('active');
 
-    // Search functionality
-    document.getElementById('searchProduct').addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const products = document.querySelectorAll('.product-card');
+                   currentCategoryId = this.dataset.categoryId;
+                   loadProducts();
+                });
+            });
+
+            // Search Input
+            document.getElementById('searchProduct').addEventListener('input', function(e) {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    loadProducts();
+                }, 300);
+            });
+            
+            // Prevent default form submission if any
+            document.getElementById('searchProduct').addEventListener('keydown', function(e) {
+                 if(e.key === 'Enter') e.preventDefault();
+            });
+
+            loadProducts();
+
+        });
         
-        products.forEach(product => {
-            const name = product.dataset.name.toLowerCase();
-            if (name.includes(searchTerm)) {
-                product.style.display = 'block';
-            } else {
-                product.style.display = 'none';
+        // Load Products Function
+        function loadProducts() {
+            const searchTerm = document.getElementById('searchProduct').value;
+             // Check if any category button is active
+            const activeCategory = document.querySelector('#posCategoryList button.active');
+            
+            const container = document.getElementById('productGridContainer');
+            
+            if (!searchTerm && !activeCategory) {
+                 container.innerHTML = `
+                    <div class="pos-empty-state" id="initialPlaceholder">
+                        <i class="fas fa-box-open"></i>
+                        <p>No products loaded.</p>
+                    </div>`;
+                 return;
+            }
+
+            const url = `/POS/Filter?categoryId=${currentCategoryId}&searchTerm=${encodeURIComponent(searchTerm)}`;
+            
+            container.style.opacity = '0.5';
+
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    container.innerHTML = html;
+                    container.style.opacity = '1';
+                })
+                .catch(error => {
+                    console.error('Error loading products:', error);
+                    container.style.opacity = '1';
+                });
+        }
+
+        function selectCustomer(id, name) {
+            selectedCustomerId.value = id;
+            customerSearch.value = name;
+            customerResults.style.display = 'none';
+
+            // Visual feedback
+            customerSearch.classList.add('is-valid');
+            customerSearch.disabled = true;
+
+            // Add clear button logic if needed, or simple reset:
+            const clearBtn = document.createElement('span');
+            clearBtn.innerHTML = '<i class="fas fa-times text-danger ms-2" style="cursor:pointer"></i>';
+            clearBtn.onclick = () => {
+                selectedCustomerId.value = '';
+                customerSearch.value = '';
+                customerSearch.classList.remove('is-valid');
+                customerSearch.disabled = false;
+                clearBtn.remove();
+            };
+            customerSearch.parentNode.appendChild(clearBtn);
+        }
+
+        // Fallback for showLoading/hideLoading if site.js fails or is cached
+        if (typeof showLoading === 'undefined') {
+            window.showLoading = function (text) {
+                console.log('Fallback showLoading:', text);
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    const txt = overlay.querySelector('.loading-text');
+                    if (txt) txt.textContent = text;
+                }
+            };
+        }
+        if (typeof hideLoading === 'undefined') {
+            window.hideLoading = function () {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.style.display = 'none';
+            };
+        }
+
+        // Update ProcessPayment to include CustomerId
+        function processPayment(method) {
+            try {
+                // Validate stock logic again client-side just in case
+                for (let item of cart) {
+                    if (item.quantity > item.stock) {
+                        showToast(`Insufficient stock for ${item.name}. Available: ${item.stock}`, 'error');
+                        return;
+                    }
+                }
+
+                if (paymentModal) paymentModal.hide();
+
+                const customerId = (selectedCustomerId && selectedCustomerId.value) ? parseInt(selectedCustomerId.value) : null;
+                const discountCode = (appliedDiscount) ? appliedDiscount.code : null;
+
+                const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+                const token = tokenElement ? tokenElement.value : '';
+
+                if (method === 'Card') {
+                    // CARD FLOW: Post to CardTerminal
+                    const cardForm = document.getElementById('cardTerminalForm');
+                    const cardInput = document.getElementById('cardCartJson');
+                    const discountInput = document.getElementById('cardDiscountCode');
+
+                    if (!cardForm || !cardInput) {
+                        showToast('Card terminal form missing', 'error');
+                        return;
+                    }
+
+                    // Map cart to SaleItemRequest format match
+                    const requestItems = cart.map(item => ({
+                        ProductId: item.id,
+                        Quantity: item.quantity
+                    }));
+
+                    cardInput.value = JSON.stringify(requestItems);
+                    if (discountInput) discountInput.value = discountCode || '';
+                    cardForm.submit();
+                }
+                else {
+                    // CASH FLOW
+                    const saleRequest = {
+                        Items: cart.map(item => ({
+                            ProductId: item.id,
+                            Quantity: item.quantity
+                        })),
+                        PaymentMethod: method,
+                        CustomerId: customerId,
+                        DiscountCode: discountCode
+                    };
+
+                    if (!navigator.onLine) {
+                        queuePendingSale(saleRequest, 'Browser is offline.');
+                        cart = [];
+                        saveCart();
+                        if (appliedDiscount) removeDiscount();
+                        else updateCartDisplay();
+                        return;
+                    }
+
+                    showLoading('Processing Sale...');
+
+                    fetch('/POS/ProcessSale', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify(saleRequest)
+                    })
+                        .then(async response => {
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                throw new Error(`Server Error (${response.status}): ${errorText.substring(0, 100)}...`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            hideLoading();
+                            if (data.success) {
+                                lastSaleId = data.saleId;
+                                document.getElementById('saleMessage').textContent = `Sale #${data.saleNumber} completed successfully via ${method}.`;
+                                if (successModal) successModal.show();
+
+                                // Clear cart on success
+                                cart = [];
+                                saveCart();
+                                cart = [];
+                                saveCart();
+                                if (appliedDiscount) removeDiscount();
+                                else updateCartDisplay();
+
+                                // Reset Customer
+                                if (selectedCustomerId && selectedCustomerId.value) {
+                                    selectedCustomerId.value = '';
+                                    if (customerSearch) {
+                                        customerSearch.value = '';
+                                        customerSearch.disabled = false;
+                                        customerSearch.classList.remove('is-valid');
+                                        const clearBtn = customerSearch.parentNode.querySelector('.fa-times');
+                                        if (clearBtn) clearBtn.remove();
+                                    }
+                                }
+                            } else {
+                                console.error('Server returned failure:', data);
+                                showToast('Sale Failed: ' + data.message, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            hideLoading();
+                            console.error('Transaction Error:', error);
+                            if (!navigator.onLine || error.name === 'TypeError') {
+                                queuePendingSale(saleRequest, error.message);
+                                cart = [];
+                                saveCart();
+                                if (appliedDiscount) removeDiscount();
+                                else updateCartDisplay();
+                                return;
+                            }
+
+                            showToast('An error occurred: ' + error.message, 'error');
+                        });
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Client Error: ' + err.message, 'error');
+            }
+        }
+
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', function (e) {
+            // F1: Focus Search
+            if (e.key === 'F1') {
+                e.preventDefault();
+                document.getElementById('searchProduct').focus();
+            }
+            // F2: Cash Payment
+            else if (e.key === 'F2') {
+                e.preventDefault();
+                if (!paymentModal._isShown && cart.length > 0) {
+                    showPaymentModal();
+                } else if (paymentModal._isShown) {
+                    processPayment('Cash');
+                }
+            }
+            // F3: Card Payment
+            else if (e.key === 'F3') {
+                e.preventDefault();
+                if (!paymentModal._isShown && cart.length > 0) {
+                    showPaymentModal();
+                } else if (paymentModal._isShown) {
+                    processPayment('Card');
+                }
+            }
+            // F4: Clear Cart
+            else if (e.key === 'F4') {
+                e.preventDefault();
+                clearCart();
+            }
+            // Esc: Close Modals
+            else if (e.key === 'Escape') {
+                if (paymentModal._isShown) paymentModal.hide();
+                if (successModal._isShown) successModal.hide();
+            }
+            // Enter: Confirm Payment (only if modal is open)
+            else if (e.key === 'Enter') {
+                if (paymentModal._isShown) {
+                    e.preventDefault();
+                    processPayment('Cash'); // Default to Cash on Enter for speed
+                }
             }
         });
-    });
-</script>
 
-<!-- Hidden Form to submit to CardTerminal -->
-<form id="cardTerminalForm" method="post" action="/POS/CardTerminal" style="display:none;">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="cartJson" id="cardCartJson" />
-</form>
+        // Barcode Scanner Logic
+        let html5PosScanner;
+        let lastScannedCode = null;
+        let lastScanTime = 0;
+
+        // Discount Logic
+        let appliedDiscount = null;
+
+        function verifyDiscount() {
+            const codeInput = document.getElementById('discountCode');
+            const code = codeInput.value.trim();
+
+            if (!code) {
+                showToast('Please enter a discount code', 'warning');
+                return;
+            }
+
+            fetch(`/Discounts/VerifyCode?code=${encodeURIComponent(code)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.valid) {
+                        appliedDiscount = data;
+                        document.getElementById('discountInfo').style.display = 'block';
+                        document.getElementById('discountInfo').innerText = `Applied: ${data.code} (${data.type === 'Percentage' ? data.value + '%' : '$' + data.value} OFF)`;
+                        codeInput.disabled = true;
+
+                        // Change button to remove
+                        const btn = codeInput.nextElementSibling;
+                        btn.innerText = 'Remove';
+                        btn.classList.replace('btn-outline-secondary', 'btn-outline-danger');
+                        btn.onclick = removeDiscount;
+
+                        showToast('Discount applied!', 'success');
+                        updateCartDisplay();
+                    } else {
+                        showToast(data.message, 'error');
+                        appliedDiscount = null;
+                        updateCartDisplay();
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Error verifying discount', 'error');
+                });
+        }
+
+        function removeDiscount() {
+            appliedDiscount = null;
+            const codeInput = document.getElementById('discountCode');
+            codeInput.value = '';
+            codeInput.disabled = false;
+
+            document.getElementById('discountInfo').style.display = 'none';
+            document.getElementById('discountInfo').innerText = '';
+
+            const btn = codeInput.nextElementSibling;
+            btn.innerText = 'Apply';
+            btn.classList.replace('btn-outline-danger', 'btn-outline-secondary');
+            btn.onclick = verifyDiscount;
+
+            updateCartDisplay();
+        }
+
+        function startPosScanner() {
+            if (html5PosScanner) return;
+
+            const container = document.getElementById('pos-scanner-container');
+            container.style.display = 'block';
+
+            html5PosScanner = new Html5Qrcode("pos-reader");
+
+            html5PosScanner.start(
+                { facingMode: "environment" },
+                {
+                    fps: 5, // Reduced FPS to prevent CPU overload
+                    qrbox: { width: 250, height: 250 }
+                },
+                (decodedText, decodedResult) => {
+                    handleScannedBarcode(decodedText);
+                },
+                (errorMessage) => {
+                    // Error callback - ignore
+                }
+            ).catch(err => {
+                console.error(err);
+                showToast("Error starting scanner: " + err, "error");
+                stopPosScanner();
+            });
+        }
+
+        function stopPosScanner() {
+            if (html5PosScanner) {
+                html5PosScanner.stop().then((ignore) => {
+                    html5PosScanner = null;
+                    document.getElementById('pos-scanner-container').style.display = 'none';
+                }).catch((err) => {
+                    console.error(err);
+                });
+            } else {
+                document.getElementById('pos-scanner-container').style.display = 'none';
+            }
+        }
+
+        function handleScannedBarcode(barcode) {
+            const now = Date.now();
+            // Prevent duplicate processing within 800ms for the SAME code
+            if (barcode === lastScannedCode && (now - lastScanTime < 800)) {
+                return;
+            }
+
+            lastScannedCode = barcode;
+            lastScanTime = now;
+
+            // Global Lookup via Server
+            fetch(`/POS/GetProductByBarcode?barcode=${encodeURIComponent(barcode)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                         const product = data.product;
+                         
+                         // Check stock
+                         if (product.stock <= 0) {
+                             showToast(`Product "${product.name}" is out of stock!`, 'error');
+                             return;
+                         }
+
+                         // Add to cart
+                         addToCart(
+                             product.id,
+                             product.name,
+                             product.price,
+                             product.stock
+                         );
+                         showToast(`Added ${product.name} to cart`, 'success');
+                    } else {
+                        showToast(`Product with barcode "${barcode}" not found.`, 'warning');
+                    }
+                })
+                .catch(err => {
+                    console.error("Barcode lookup failed", err);
+                    showToast("Error checking barcode.", "error");
+                });
+        }
+
+
+    </script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <!-- Hidden Form to submit to CardTerminal -->
+    <form id="cardTerminalForm" method="post" action="/POS/CardTerminal" style="display:none;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="cartJson" id="cardCartJson" />
+        <input type="hidden" name="discountCode" id="cardDiscountCode" />
+    </form>
 }

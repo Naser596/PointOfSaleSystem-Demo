@@ -2,7 +2,6 @@
 @{
     Layout = null;
     var subtotal = Model.TotalAmount; // Assuming inclusive for now, or 0 tax
-    var tax = 0m;
 }
 
 <!DOCTYPE html>
@@ -97,7 +96,7 @@
             @foreach (var item in Model.SaleItems)
             {
                 <tr>
-                    <td>@item.Product.Name</td>
+                    <td>@(!string.IsNullOrWhiteSpace(item.ProductNameSnapshot) ? item.ProductNameSnapshot : item.Product?.Name ?? "Product")</td>
                     <td>@item.Quantity</td>
                     <td style="text-align: right;">@((item.UnitPrice * item.Quantity).ToString("N2"))</td>
                 </tr>

@@ -1,0 +1,14 @@
+.git
+.vs
+bin
+obj
+WebApplication3_Backup
+*.db
+*.db-shm
+*.db-wal
+*.log
+server.out.log
+server.err.log
+run_log.txt
+.env
+wwwroot/images/company

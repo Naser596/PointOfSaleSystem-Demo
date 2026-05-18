@@ -10,12 +10,13 @@ namespace WebApplication3.Services
         Task<Sale> UpdateSaleAsync(Sale sale);
         Task<bool> DeleteSaleAsync(int id);
         Task<decimal> GetTotalSalesAsync();
-        
+
         // New filtering methods
+        Task<List<Sale>> GetSalesByCashierAsync(string cashierName);
         Task<(List<Sale> Sales, int TotalCount)> SearchSalesAsync(SalesFilterDto filter);
         Task<List<string>> GetCashierNamesAsync();
     }
-    
+
     public class SalesFilterDto
     {
         public DateTime? DateFrom { get; set; }

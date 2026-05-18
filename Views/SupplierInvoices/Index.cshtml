@@ -1,0 +1,86 @@
+@model List<SupplierInvoice>
+@{
+    ViewData["Title"] = "Supplier Invoices";
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-file-invoice-dollar me-3"></i>Supplier Invoices</h1>
+        <p>Purchase invoices for products, supplier costs, and matching control.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-action="Create" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>New Invoice
+        </a>
+    </div>
+</div>
+
+<div class="data-table-card">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-table me-2"></i>Supplier Invoice Register</h2>
+            <p class="erp-surface-subtitle">Invoice status, match status, supplier reference, and totals.</p>
+        </div>
+    </div>
+    @if (Model.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Supplier</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Match</th>
+                        <th class="money-cell">Subtotal</th>
+                        <th class="money-cell">Tax</th>
+                        <th class="money-cell">Total</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var invoice in Model)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@invoice.InvoiceNumber</td>
+                            <td>
+                                <div class="table-entity-title">@invoice.SupplierName</div>
+                                @if (!string.IsNullOrEmpty(invoice.SupplierInvoiceNumber))
+                                {
+                                    <div class="table-entity-meta">Supplier no: @invoice.SupplierInvoiceNumber</div>
+                                }
+                            </td>
+                            <td>@invoice.InvoiceDate.ToString("yyyy-MM-dd")</td>
+                            <td><span class="status-pill">@invoice.Status</span></td>
+                            <td><span class="status-pill info">@invoice.MatchStatus</span></td>
+                            <td class="money-cell">@invoice.SubTotal.ToString("C")</td>
+                            <td class="money-cell">@invoice.TaxAmount.ToString("C")</td>
+                            <td class="money-cell fw-semibold">@invoice.TotalAmount.ToString("C")</td>
+                            <td class="text-end">
+                                <div class="table-actions">
+                                    <a asp-action="Details" asp-route-id="@invoice.Id" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i>View
+                                    </a>
+                                    <a asp-action="DownloadPdf" asp-route-id="@invoice.Id" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-file-pdf me-1"></i>PDF
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="state-card">
+            <i class="fas fa-file-invoice fa-3x mb-3"></i>
+            <p>No supplier invoices yet.</p>
+            <a asp-action="Create" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>New Invoice
+            </a>
+        </div>
+    }
+</div>

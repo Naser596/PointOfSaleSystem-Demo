@@ -1,0 +1,115 @@
+@model SalesDocumentDetailsViewModel
+@{
+    Layout = null;
+    var company = Model.Company;
+    var document = Model.Document;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@document.DocumentNumber</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #111827; margin: 0; background: #f3f4f6; }
+        .sheet { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 18mm; box-sizing: border-box; }
+        .top { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 18px; }
+        .brand { display: flex; gap: 14px; align-items: center; }
+        .brand img { max-width: 110px; max-height: 56px; object-fit: contain; }
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 28px; letter-spacing: 0; }
+        h2 { font-size: 18px; margin-bottom: 8px; }
+        .muted { color: #6b7280; }
+        .meta { text-align: right; line-height: 1.7; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+        .box { border: 1px solid #d1d5db; padding: 14px; min-height: 92px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        th { background: #111827; color: #fff; text-align: left; padding: 10px; font-size: 13px; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 10px; font-size: 13px; }
+        .right { text-align: right; }
+        .totals { width: 320px; margin-left: auto; margin-top: 20px; }
+        .totals div { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+        .grand { font-size: 18px; font-weight: 700; border-bottom: 2px solid #111827 !important; }
+        .actions { width: 210mm; margin: 16px auto; text-align: right; }
+        .actions button { background: #2563eb; color: #fff; border: 0; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+        @@media print {
+            body { background: #fff; }
+            .sheet { width: auto; min-height: auto; margin: 0; padding: 0; }
+            .actions { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="actions">
+        <button onclick="window.print()">Print</button>
+    </div>
+    <main class="sheet">
+        <section class="top">
+            <div class="brand">
+                @if (!string.IsNullOrWhiteSpace(company.LogoPath))
+                {
+                    <img src="@company.LogoPath" alt="@company.DisplayName logo" />
+                }
+                <div>
+                    <h1>@company.DisplayName</h1>
+                    <p class="muted">@company.LegalName</p>
+                    <p class="muted">@company.Address @company.City @company.Country</p>
+                    <p class="muted">@company.Email @company.Phone</p>
+                </div>
+            </div>
+            <div class="meta">
+                <h1>@document.DocumentType</h1>
+                <div><strong>No:</strong> @document.DocumentNumber</div>
+                <div><strong>Date:</strong> @document.DocumentDate.ToString("MMM dd, yyyy")</div>
+                <div><strong>Due:</strong> @(document.DueDate?.ToString("MMM dd, yyyy") ?? "-")</div>
+                <div><strong>Status:</strong> @document.Status</div>
+            </div>
+        </section>
+
+        <section class="grid">
+            <div class="box">
+                <h2>Bill To</h2>
+                <p>@(document.Customer?.Name ?? "Walk-in / no customer")</p>
+                <p class="muted">@document.Customer?.Email</p>
+                <p class="muted">@document.Customer?.Phone</p>
+                <p class="muted">@document.Customer?.Address</p>
+            </div>
+            <div class="box">
+                <h2>Notes</h2>
+                <p class="muted">@(document.Notes ?? company.InvoiceFooterNote ?? "-")</p>
+            </div>
+        </section>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th class="right">Qty</th>
+                    <th class="right">Unit</th>
+                    <th class="right">Tax</th>
+                    <th class="right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in document.Lines)
+                {
+                    <tr>
+                        <td>@line.Description</td>
+                        <td class="right">@line.Quantity.ToString("N2")</td>
+                        <td class="right">$@line.UnitPrice.ToString("N2")</td>
+                        <td class="right">$@line.TaxAmount.ToString("N2")</td>
+                        <td class="right">$@line.LineTotal.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <section class="totals">
+            <div><span>Subtotal</span><strong>$@document.SubTotal.ToString("N2")</strong></div>
+            <div><span>Tax</span><strong>$@document.TaxAmount.ToString("N2")</strong></div>
+            <div><span>Discount</span><strong>$@document.DiscountAmount.ToString("N2")</strong></div>
+            <div class="grand"><span>Total</span><strong>$@document.TotalAmount.ToString("N2")</strong></div>
+        </section>
+    </main>
+</body>
+</html>

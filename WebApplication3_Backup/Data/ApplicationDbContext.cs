@@ -3,15 +3,11 @@ using WebApplication3.Models;
 
 namespace WebApplication3.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
-        {
-        }
-
-        public DbSet<Product> Products { get; set; }
-        public DbSet<Sale> Sales { get; set; }
-        public DbSet<SaleItem> SaleItems { get; set; }
+        public DbSet<Product> Products { get; set; } = default!;
+        public DbSet<Sale> Sales { get; set; } = default!;
+        public DbSet<SaleItem> SaleItems { get; set; } = default!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

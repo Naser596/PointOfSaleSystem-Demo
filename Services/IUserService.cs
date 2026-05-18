@@ -4,12 +4,12 @@ namespace WebApplication3.Services
 {
     public interface IUserService
     {
-        Task<List<UserDto>> GetAllUsersAsync();
-        Task<UserDto?> GetUserByIdAsync(string id);
-        Task<(bool Success, string[] Errors)> CreateUserAsync(CreateUserDto dto);
-        Task<(bool Success, string[] Errors)> UpdateUserAsync(UpdateUserDto dto);
-        Task<(bool Success, string[] Errors)> DeleteUserAsync(string id);
-        Task<(bool Success, string[] Errors)> ResetPasswordAsync(string userId, string newPassword);
+        Task<List<UserDto>> GetAllUsersAsync(int? companyId = null);
+        Task<UserDto?> GetUserByIdAsync(string id, int? companyId = null);
+        Task<(bool Success, string[] Errors)> CreateUserAsync(CreateUserDto dto, int? companyId = null);
+        Task<(bool Success, string[] Errors)> UpdateUserAsync(UpdateUserDto dto, int? companyId = null);
+        Task<(bool Success, string[] Errors)> DeleteUserAsync(string id, int? companyId = null);
+        Task<(bool Success, string[] Errors)> ResetPasswordAsync(string userId, string newPassword, int? companyId = null);
         Task<List<string>> GetUserRolesAsync(string userId);
         Task<List<string>> GetAllRolesAsync();
     }
@@ -23,6 +23,8 @@ namespace WebApplication3.Services
         public bool LockoutEnabled { get; set; }
         public DateTimeOffset? LockoutEnd { get; set; }
         public List<string> Roles { get; set; } = new();
+        public int? CompanyId { get; set; }
+        public string? CompanyName { get; set; }
     }
 
     public class CreateUserDto

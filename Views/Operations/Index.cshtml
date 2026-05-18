@@ -1,0 +1,338 @@
+@model OperationsDashboardViewModel
+@{
+    ViewData["Title"] = "Operations";
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-store me-3"></i>Operations</h1>
+        <p>Stores, registers, and shift control for this company.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#storeModal">
+            <i class="fas fa-plus me-2"></i>Store
+        </button>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#registerModal">
+            <i class="fas fa-cash-register me-2"></i>Register
+        </button>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card primary">
+            <i class="fas fa-store stat-icon"></i>
+            <div class="stat-value">@Model.Stores.Count</div>
+            <div class="stat-label">Stores</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card success">
+            <i class="fas fa-cash-register stat-icon"></i>
+            <div class="stat-value">@Model.Stores.Sum(s => s.Registers.Count)</div>
+            <div class="stat-label">Registers</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card warning">
+            <i class="fas fa-user-clock stat-icon"></i>
+            <div class="stat-value">@Model.OpenSessions.Count</div>
+            <div class="stat-label">Open Shifts</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-sitemap me-2"></i>Stores and Registers
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Stores.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Store</th>
+                                    <th>Registers</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var store in Model.Stores)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@store.Name</strong>
+                                            <div class="small text-muted">
+                                                @(store.Code ?? "No code")
+                                                @if (!string.IsNullOrWhiteSpace(store.Address))
+                                                {
+                                                    <span> - @store.Address</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td>
+                                            @if (store.Registers.Any())
+                                            {
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @foreach (var register in store.Registers.OrderBy(r => r.Name))
+                                                    {
+                                                        var hasOpenShift = Model.OpenSessions.Any(s => s.RegisterId == register.Id);
+                                                        <span class="badge @(hasOpenShift ? "bg-success" : "bg-secondary")">
+                                                            @register.Name @(hasOpenShift ? "Open" : "Idle")
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">No registers</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            @if (store.Registers.Any())
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#openShiftModal" data-store-id="@store.Id">
+                                                    Open Shift
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-store fa-3x mb-3"></i>
+                        <p>No stores created yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-user-clock me-2"></i>Open Shifts
+            </div>
+            <div class="card-body p-0">
+                @if (Model.OpenSessions.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Register</th>
+                                    <th>Opened</th>
+                                    <th class="text-end">Close</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var session in Model.OpenSessions)
+                                {
+                                    <tr>
+                                        <td>
+                                            <strong>@session.Register.Name</strong>
+                                            <div class="small text-muted">@session.Register.Store.Name</div>
+                                        </td>
+                                        <td>
+                                            @session.OpenedAt.ToString("MMM dd, HH:mm")
+                                            <div class="small text-muted">$@session.OpeningCash.ToString("N2") opening</div>
+                                        </td>
+                                        <td class="text-end">
+                                            <form asp-action="CloseShift" method="post" class="d-flex justify-content-end gap-2">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="SessionId" value="@session.Id" />
+                                                <input name="ClosingCash" type="number" min="0" step="0.01" class="form-control form-control-sm" style="max-width: 130px;" placeholder="Amount" />
+                                                <button type="submit" class="btn btn-sm btn-outline-primary">Close</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>No open shifts.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-history me-2"></i>Recent Sessions
+    </div>
+    <div class="card-body p-0">
+        @if (Model.RecentSessions.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Register</th>
+                            <th>Opened By</th>
+                            <th>Opened</th>
+                            <th>Closed</th>
+                            <th class="text-end">Difference</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var session in Model.RecentSessions)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@session.Register.Name</strong>
+                                    <div class="small text-muted">@session.Register.Store.Name</div>
+                                </td>
+                                <td>@session.OpenedBy</td>
+                                <td>@session.OpenedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td>@(session.ClosedAt?.ToString("MMM dd, yyyy HH:mm") ?? "-")</td>
+                                <td class="text-end fw-bold @(session.Difference < 0 ? "text-danger" : session.Difference > 0 ? "text-success" : "")">
+                                    @(session.Difference?.ToString("N2") ?? "-")
+                                </td>
+                                <td>
+                                    <span class="badge @(session.Status == "Open" ? "bg-success" : "bg-secondary")">@session.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-history fa-3x mb-3"></i>
+                <p>No register sessions yet.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="storeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-action="CreateStore" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Store</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input name="Name" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Code</label>
+                        <input name="Code" class="form-control" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Address</label>
+                        <input name="Address" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Store</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-action="CreateRegister" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Register</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Store</label>
+                        <select name="StoreId" class="form-select" required>
+                            <option value="">Select store</option>
+                            @foreach (var store in Model.Stores)
+                            {
+                                <option value="@store.Id">@store.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input name="Name" class="form-control" required />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Code</label>
+                        <input name="Code" class="form-control" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save Register</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="openShiftModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-action="OpenShift" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Open Shift</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Register</label>
+                        <select name="RegisterId" class="form-select" required>
+                            <option value="">Select register</option>
+                            @foreach (var store in Model.Stores)
+                            {
+                                <optgroup label="@store.Name">
+                                    @foreach (var register in store.Registers.OrderBy(r => r.Name))
+                                    {
+                                        var isOpen = Model.OpenSessions.Any(s => s.RegisterId == register.Id);
+                                        <option value="@register.Id" disabled="@isOpen">@register.Name @(isOpen ? "(Open)" : "")</option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Opening Cash</label>
+                        <input name="OpeningCash" type="number" min="0" step="0.01" class="form-control" required />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Notes</label>
+                        <textarea name="Notes" rows="3" class="form-control"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Open Shift</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

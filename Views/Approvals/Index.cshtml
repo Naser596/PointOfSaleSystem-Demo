@@ -1,0 +1,161 @@
+@model ApprovalDashboardViewModel
+@{
+    ViewData["Title"] = "Approvals";
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-user-check me-3"></i>Approvals</h1>
+        <p>Approval queue for ERP actions that need manager review.</p>
+    </div>
+    <a href="/Erp" class="btn btn-outline-secondary"><i class="fas fa-sitemap me-2"></i>ERP Core</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-plus me-2"></i>New Approval Request</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <input name="RequestType" class="form-control" value="Approval" required />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Entity</label>
+                <input name="EntityName" class="form-control" placeholder="PurchaseOrder" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Entity ID</label>
+                <input name="EntityId" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Notes</label>
+                <input name="Notes" class="form-control" />
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-success"><i class="fas fa-plus me-2"></i>Create Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-shield-halved me-2"></i>Approval Rules</div>
+    <div class="card-body">
+        <form asp-action="CreateRule" method="post" class="row g-3 mb-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-3">
+                <label class="form-label">Rule Name</label>
+                <input name="RuleName" class="form-control" placeholder="PO manager approval" required />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Entity</label>
+                <select name="EntityName" class="form-select">
+                    <option value="PurchaseOrder">Purchase Order</option>
+                    <option value="SupplierInvoice">Supplier Invoice</option>
+                    <option value="StockAdjustment">Stock Adjustment</option>
+                    <option value="StockTransfer">Stock Transfer</option>
+                    <option value="Discount">Discount</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Action</label>
+                <input name="ActionName" class="form-control" value="Create" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Threshold</label>
+                <input name="AmountThreshold" type="number" min="0" step="0.01" class="form-control" value="0" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus me-2"></i>Add Rule</button>
+            </div>
+            <div class="col-12">
+                <input name="Notes" class="form-control" placeholder="Optional notes for this approval rule" />
+            </div>
+        </form>
+        @if (Model.Rules.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead><tr><th>Rule</th><th>Entity</th><th>Action</th><th class="text-end">Threshold</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                    @foreach (var rule in Model.Rules)
+                    {
+                        <tr>
+                            <td><strong>@rule.RuleName</strong><div class="small text-muted">@rule.Notes</div></td>
+                            <td>@rule.EntityName</td>
+                            <td>@rule.ActionName</td>
+                            <td class="text-end">$@rule.AmountThreshold.ToString("N2")</td>
+                            <td><span class="badge @(rule.IsActive ? "bg-success" : "bg-secondary")">@(rule.IsActive ? "Active" : "Inactive")</span></td>
+                            <td class="text-end">
+                                <form asp-action="ToggleRule" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@rule.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Toggle</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-list-check me-2"></i>Approval Queue</div>
+    <div class="card-body p-0">
+        @if (Model.Requests.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Request</th>
+                            <th>Entity</th>
+                            <th>Requested</th>
+                            <th>Status</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var request in Model.Requests)
+                        {
+                            <tr>
+                                <td><strong>@request.RequestType</strong><div class="small text-muted">@request.Notes</div></td>
+                                <td>@request.EntityName #@(request.EntityId ?? "-")</td>
+                                <td>@request.RequestedDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                <td><span class="badge @(request.Status == "Pending" ? "bg-warning text-dark" : request.Status == "Approved" ? "bg-success" : "bg-danger")">@request.Status</span></td>
+                                <td class="text-end">
+                                    @if (request.Status == "Pending")
+                                    {
+                                        <form asp-action="Complete" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@request.Id" />
+                                            <input type="hidden" name="status" value="Approved" />
+                                            <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i>Approve</button>
+                                        </form>
+                                        <form asp-action="Complete" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@request.Id" />
+                                            <input type="hidden" name="status" value="Rejected" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-xmark me-1"></i>Reject</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-user-check fa-3x mb-3"></i>
+                <p>No approval requests yet.</p>
+            </div>
+        }
+    </div>
+</div>

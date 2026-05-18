@@ -1,0 +1,111 @@
+@model List<NotificationMessage>
+@{
+    ViewData["Title"] = "Notifications";
+    var status = ViewBag.Status as string ?? "Queued";
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-bell me-3"></i>Notifications</h1>
+        <p>Email/SMS outbox for invoice reminders, overdue customer reminders, and subscription expiry notices.</p>
+        @if (!User.IsInRole("SuperAdmin"))
+        {
+            <p class="text-muted small mb-0">Customer reminders are generated for unpaid invoices with a customer email or phone. Due date is used first; if it is empty, the invoice date is used.</p>
+        }
+    </div>
+    <div class="d-flex gap-2">
+        @if (!User.IsInRole("SuperAdmin"))
+        {
+            <form asp-action="GenerateCustomerReminders" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary"><i class="fas fa-envelope me-2"></i>Generate Customer Reminders</button>
+            </form>
+        }
+        @if (User.IsInRole("SuperAdmin"))
+        {
+            <form asp-action="GenerateSubscriptionReminders" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary"><i class="fas fa-clock me-2"></i>Generate Subscription Notices</button>
+            </form>
+        }
+    </div>
+</div>
+
+<form method="get" class="filter-shell">
+    <div class="row g-3 flex-grow-1">
+        <div class="col-md-4">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+                @foreach (var option in new[] { "Queued", "Sent", "Cancelled", "All" })
+                {
+                    <option value="@option" selected="@(status == option)">@option</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-list me-2"></i>Outbox</div>
+    <div class="card-body p-0">
+        @if (Model.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead><tr><th>Created</th><th>Channel</th><th>Type</th><th>Recipient</th><th>Subject</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                    @foreach (var notification in Model)
+                    {
+                        <tr>
+                            <td>@notification.CreatedDate.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td><span class="badge bg-secondary">@notification.Channel</span></td>
+                            <td>@notification.NotificationType</td>
+                            <td>
+                                @notification.Recipient
+                                @if (User.IsInRole("SuperAdmin") && notification.Company != null)
+                                {
+                                    <div class="small text-muted">@notification.Company.DisplayName</div>
+                                }
+                            </td>
+                            <td>
+                                <strong>@notification.Subject</strong>
+                                <div class="small text-muted">@notification.Body</div>
+                            </td>
+                            <td><span class="badge @(notification.Status == "Sent" ? "bg-success" : notification.Status == "Cancelled" ? "bg-secondary" : "bg-warning text-dark")">@notification.Status</span></td>
+                            <td class="text-end">
+                                @if (notification.Status == "Queued")
+                                {
+                                    <form asp-action="MarkSent" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@notification.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-success">Mark Sent</button>
+                                    </form>
+                                    <form asp-action="Cancel" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@notification.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-bell fa-3x mb-3"></i>
+                <p>No notifications found.</p>
+                @if (!User.IsInRole("SuperAdmin"))
+                {
+                    <div class="small text-muted">Create an unpaid Invoice for a customer with email/phone, then click Generate Customer Reminders.</div>
+                }
+            </div>
+        }
+    </div>
+</div>

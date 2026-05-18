@@ -5,8 +5,54 @@
 
 <div class="page-header">
     <h1><i class="fas fa-receipt me-3"></i>Sales History</h1>
-    <p>View all completed sales transactions</p>
+    <p>Search transactions, review payments, and process returns</p>
 </div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label for="searchTerm" class="form-label">Transaction ID / Sale Number</label>
+                <input id="searchTerm" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search SALE-..." autocomplete="off" />
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>Search
+                </button>
+                <select name="pageSize" class="form-select" style="max-width: 110px;">
+                    <option value="20" selected="@(ViewBag.PageSize == 20)">20</option>
+                    <option value="50" selected="@(ViewBag.PageSize == 50)">50</option>
+                    <option value="100" selected="@(ViewBag.PageSize == 100)">100</option>
+                </select>
+                <a href="/Sales" class="btn btn-outline-secondary">
+                    <i class="fas fa-rotate-left me-2"></i>Reset
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if ((int)(ViewBag.TotalPages ?? 0) > 1)
+{
+    var page = (int)ViewBag.Page;
+    var totalPages = (int)ViewBag.TotalPages;
+    <nav class="mt-3" aria-label="Sales pages">
+        <ul class="pagination justify-content-end mb-0">
+            <li class="page-item @(page <= 1 ? "disabled" : "")">
+                <a class="page-link" href="/Sales?searchTerm=@ViewBag.SearchTerm&page=@(page - 1)&pageSize=@ViewBag.PageSize">Previous</a>
+            </li>
+            @for (var p = Math.Max(1, page - 2); p <= Math.Min(totalPages, page + 2); p++)
+            {
+                <li class="page-item @(p == page ? "active" : "")">
+                    <a class="page-link" href="/Sales?searchTerm=@ViewBag.SearchTerm&page=@p&pageSize=@ViewBag.PageSize">@p</a>
+                </li>
+            }
+            <li class="page-item @(page >= totalPages ? "disabled" : "")">
+                <a class="page-link" href="/Sales?searchTerm=@ViewBag.SearchTerm&page=@(page + 1)&pageSize=@ViewBag.PageSize">Next</a>
+            </li>
+        </ul>
+    </nav>
+}
 
 <div class="card">
     <div class="card-body p-0">
@@ -19,6 +65,7 @@
                         <th>Date</th>
                         <th>Items</th>
                         <th>Total</th>
+                        <th>Refunded</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -38,11 +85,24 @@
                             <td>@sale.SaleDate.ToString("MMM dd, yyyy HH:mm")</td>
                             <td><span class="badge bg-light text-dark">@sale.SaleItems.Count items</span></td>
                             <td><span class="fw-bold text-success h5 mb-0">$@sale.TotalAmount.ToString("N2")</span></td>
-                            <td><span class="badge bg-success">@sale.Status</span></td>
+                            <td><span class="fw-semibold text-danger">$@sale.RefundedAmount.ToString("N2")</span></td>
                             <td>
-                                <a href="/Sales/Details/@sale.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye me-1"></i>Details
-                                </a>
+                                <span class="badge @(sale.Status == "Returned" ? "bg-danger" : sale.Status == "Partially Returned" ? "bg-warning text-dark" : "bg-success")">
+                                    @sale.Status
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/Sales/Details/@sale.Id" class="btn btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i>Details
+                                    </a>
+                                    @if (User.IsInRole("Admin") && sale.Status != "Returned")
+                                    {
+                                        <a href="/Sales/Return/@sale.Id" class="btn btn-outline-danger">
+                                            <i class="fas fa-undo me-1"></i>Return
+                                        </a>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }

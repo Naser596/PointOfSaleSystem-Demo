@@ -1,0 +1,230 @@
+@model OfflineSyncDashboardViewModel
+@{
+    ViewData["Title"] = "Offline Sync";
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-cloud-upload-alt me-3"></i>Offline Sync</h1>
+    <p>Review and sync sales queued locally by this browser.</p>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="row g-4">
+    <div class="col-lg-3">
+        <div class="stat-card warning">
+            <i class="fas fa-clock stat-icon"></i>
+            <div class="stat-value" id="pendingSyncCount">0</div>
+            <div class="stat-label">Browser Pending Sales</div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card success">
+            <i class="fas fa-cloud-check stat-icon"></i>
+            <div class="stat-value">@Model.SyncedCount</div>
+            <div class="stat-label">Server Synced</div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card danger">
+            <i class="fas fa-triangle-exclamation stat-icon"></i>
+            <div class="stat-value">@Model.FailedCount</div>
+            <div class="stat-label">Server Failed</div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="stat-card warning">
+            <i class="fas fa-code-compare stat-icon"></i>
+            <div class="stat-value">@Model.ConflictCount</div>
+            <div class="stat-label">Stock Conflicts</div>
+        </div>
+    </div>
+    <div class="col-lg-12">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list me-2"></i>Pending Queue</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="syncPendingSalesFromAdmin()">
+                        <i class="fas fa-sync me-1"></i>Sync Now
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearPendingQueue()">
+                        <i class="fas fa-trash me-1"></i>Clear
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="pendingSyncList" class="empty-state">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>No pending offline sales in this browser.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header"><i class="fas fa-server me-2"></i>Server Sync History</div>
+    <div class="card-body p-0">
+        @if (Model.Records.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Client ID</th>
+                            <th>Queued</th>
+                            <th>Received</th>
+                            <th>Status</th>
+                            <th>Sale</th>
+                            <th>Error</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var record in Model.Records)
+                    {
+                        <tr>
+                            <td><code>@record.ClientId</code></td>
+                            <td>@record.QueuedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td>@record.ReceivedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td><span class="badge @(record.Status == "Synced" ? "bg-success" : record.Status == "Failed" ? "bg-danger" : "bg-warning text-dark")">@record.Status</span></td>
+                            <td>
+                                @if (record.SaleId.HasValue)
+                                {
+                                    <a href="/Sales/Details/@record.SaleId">@record.Sale?.SaleNumber</a>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td class="text-danger small" style="white-space: pre-line;">@record.ErrorMessage</td>
+                            <td class="text-end">
+                                @if (record.Status == "Failed" || record.Status == "Conflict" || record.Status == "Pending")
+                                {
+                                    <form asp-action="Retry" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@record.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-rotate me-1"></i>Retry
+                                        </button>
+                                    </form>
+                                    <form asp-action="Cancel" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@record.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancel this offline sync record?')">
+                                            Cancel
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-server fa-3x mb-3"></i>
+                <p>No server sync records yet.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const PENDING_SALES_KEY = 'pos_pending_sales_v1';
+
+        function getPendingSales() {
+            try {
+                return JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function savePendingSales(items) {
+            localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(items));
+            renderPendingSales();
+        }
+
+        function renderPendingSales() {
+            const pending = getPendingSales();
+            document.getElementById('pendingSyncCount').textContent = pending.length;
+            const container = document.getElementById('pendingSyncList');
+
+            if (pending.length === 0) {
+                container.className = 'empty-state';
+                container.innerHTML = '<i class="fas fa-check-circle fa-3x mb-3"></i><p>No pending offline sales in this browser.</p>';
+                return;
+            }
+
+            container.className = 'table-responsive';
+            container.innerHTML = `
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Queued</th>
+                            <th>Payment</th>
+                            <th class="text-center">Items</th>
+                            <th>Last Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${pending.map(item => `
+                            <tr>
+                                <td>${new Date(item.queuedAt).toLocaleString()}</td>
+                                <td>${item.paymentMethod || 'Cash'}</td>
+                                <td class="text-center">${item.items?.length || 0}</td>
+                                <td class="text-danger small">${item.lastError || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        async function syncPendingSalesFromAdmin() {
+            const pending = getPendingSales();
+            if (pending.length === 0) {
+                showToast('No pending sales to sync.', 'info');
+                return;
+            }
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+            const response = await fetch('/POS/SyncPendingSales', {
+                method: 'POST',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify(pending)
+            });
+
+            const result = await response.json();
+            const failedIds = new Set(result.results.filter(x => !x.success).map(x => x.clientId));
+            const failures = new Map(result.results.filter(x => !x.success).map(x => [x.clientId, x.message]));
+            const remaining = pending
+                .filter(item => failedIds.has(item.clientId))
+                .map(item => ({ ...item, lastError: failures.get(item.clientId) || 'Sync failed' }));
+
+            savePendingSales(remaining);
+            showToast(`${pending.length - remaining.length} sale(s) synced. ${remaining.length} pending.`, remaining.length ? 'warning' : 'success');
+        }
+
+        function clearPendingQueue() {
+            if (!confirm('Clear all pending offline sales from this browser?')) return;
+            savePendingSales([]);
+        }
+
+        renderPendingSales();
+    </script>
+}

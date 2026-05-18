@@ -1,8 +1,13 @@
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+
 namespace WebApplication3.Models
 {
     public class Discount
     {
         public int Id { get; set; }
+        public int CompanyId { get; set; }
+        [ValidateNever]
+        public Company Company { get; set; } = null!;
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public DiscountType DiscountType { get; set; }

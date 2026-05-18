@@ -1,22 +1,29 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using WebApplication3.Models;
 
 namespace WebApplication3.Services
 {
     public class UserService : IUserService
     {
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
 
-        public UserService(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
+        public UserService(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
             _roleManager = roleManager;
         }
 
-        public async Task<List<UserDto>> GetAllUsersAsync()
+        public async Task<List<UserDto>> GetAllUsersAsync(int? companyId = null)
         {
-            var users = await _userManager.Users.ToListAsync();
+            var query = _userManager.Users.Include(u => u.Company).AsQueryable();
+            if (companyId.HasValue)
+            {
+                query = query.Where(u => u.CompanyId == companyId.Value);
+            }
+
+            var users = await query.ToListAsync();
             var userDtos = new List<UserDto>();
 
             foreach (var user in users)
@@ -30,17 +37,22 @@ namespace WebApplication3.Services
                     EmailConfirmed = user.EmailConfirmed,
                     LockoutEnabled = user.LockoutEnabled,
                     LockoutEnd = user.LockoutEnd,
-                    Roles = roles.ToList()
+                    Roles = roles.ToList(),
+                    CompanyId = user.CompanyId,
+                    CompanyName = user.Company?.DisplayName
                 });
             }
 
             return userDtos;
         }
 
-        public async Task<UserDto?> GetUserByIdAsync(string id)
+        public async Task<UserDto?> GetUserByIdAsync(string id, int? companyId = null)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userManager.Users
+                .Include(u => u.Company)
+                .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return null;
+            if (companyId.HasValue && user.CompanyId != companyId.Value) return null;
 
             var roles = await _userManager.GetRolesAsync(user);
             return new UserDto
@@ -51,17 +63,26 @@ namespace WebApplication3.Services
                 EmailConfirmed = user.EmailConfirmed,
                 LockoutEnabled = user.LockoutEnabled,
                 LockoutEnd = user.LockoutEnd,
-                Roles = roles.ToList()
+                Roles = roles.ToList(),
+                CompanyId = user.CompanyId,
+                CompanyName = user.Company?.DisplayName
             };
         }
 
-        public async Task<(bool Success, string[] Errors)> CreateUserAsync(CreateUserDto dto)
+        public async Task<(bool Success, string[] Errors)> CreateUserAsync(CreateUserDto dto, int? companyId = null)
         {
-            var user = new IdentityUser
+            var role = NormalizeAssignableRole(dto.Role, companyId);
+            if (!string.IsNullOrEmpty(role) && !await _roleManager.RoleExistsAsync(role))
+            {
+                return (false, new[] { "Selected role is not available" });
+            }
+
+            var user = new ApplicationUser
             {
                 UserName = dto.Email,
                 Email = dto.Email,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                CompanyId = companyId
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
@@ -70,20 +91,31 @@ namespace WebApplication3.Services
                 return (false, result.Errors.Select(e => e.Description).ToArray());
             }
 
-            if (!string.IsNullOrEmpty(dto.Role))
+            if (!string.IsNullOrEmpty(role))
             {
-                await _userManager.AddToRoleAsync(user, dto.Role);
+                await _userManager.AddToRoleAsync(user, role);
             }
 
             return (true, Array.Empty<string>());
         }
 
-        public async Task<(bool Success, string[] Errors)> UpdateUserAsync(UpdateUserDto dto)
+        public async Task<(bool Success, string[] Errors)> UpdateUserAsync(UpdateUserDto dto, int? companyId = null)
         {
             var user = await _userManager.FindByIdAsync(dto.Id);
             if (user == null)
             {
                 return (false, new[] { "User not found" });
+            }
+
+            if (companyId.HasValue && user.CompanyId != companyId.Value)
+            {
+                return (false, new[] { "User does not belong to your company" });
+            }
+
+            var role = NormalizeAssignableRole(dto.Role, companyId);
+            if (!string.IsNullOrEmpty(role) && !await _roleManager.RoleExistsAsync(role))
+            {
+                return (false, new[] { "Selected role is not available" });
             }
 
             user.Email = dto.Email;
@@ -110,20 +142,25 @@ namespace WebApplication3.Services
             // Update role
             var currentRoles = await _userManager.GetRolesAsync(user);
             await _userManager.RemoveFromRolesAsync(user, currentRoles);
-            if (!string.IsNullOrEmpty(dto.Role))
+            if (!string.IsNullOrEmpty(role))
             {
-                await _userManager.AddToRoleAsync(user, dto.Role);
+                await _userManager.AddToRoleAsync(user, role);
             }
 
             return (true, Array.Empty<string>());
         }
 
-        public async Task<(bool Success, string[] Errors)> DeleteUserAsync(string id)
+        public async Task<(bool Success, string[] Errors)> DeleteUserAsync(string id, int? companyId = null)
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
             {
                 return (false, new[] { "User not found" });
+            }
+
+            if (companyId.HasValue && user.CompanyId != companyId.Value)
+            {
+                return (false, new[] { "User does not belong to your company" });
             }
 
             var result = await _userManager.DeleteAsync(user);
@@ -135,12 +172,17 @@ namespace WebApplication3.Services
             return (true, Array.Empty<string>());
         }
 
-        public async Task<(bool Success, string[] Errors)> ResetPasswordAsync(string userId, string newPassword)
+        public async Task<(bool Success, string[] Errors)> ResetPasswordAsync(string userId, string newPassword, int? companyId = null)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
                 return (false, new[] { "User not found" });
+            }
+
+            if (companyId.HasValue && user.CompanyId != companyId.Value)
+            {
+                return (false, new[] { "User does not belong to your company" });
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
@@ -165,7 +207,36 @@ namespace WebApplication3.Services
 
         public async Task<List<string>> GetAllRolesAsync()
         {
-            return await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+            return await _roleManager.Roles
+                .Where(r => r.Name != "SuperAdmin")
+                .Select(r => r.Name!)
+                .OrderBy(r => r)
+                .ToListAsync();
+        }
+
+        private static string? NormalizeAssignableRole(string? requestedRole, int? companyId)
+        {
+            if (string.IsNullOrWhiteSpace(requestedRole))
+            {
+                return null;
+            }
+
+            if (!companyId.HasValue)
+            {
+                return requestedRole;
+            }
+
+            var allowedCompanyRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Admin",
+                "Manager",
+                "Accountant",
+                "Warehouse",
+                "HR",
+                "Cashier"
+            };
+
+            return allowedCompanyRoles.Contains(requestedRole) ? requestedRole : "Cashier";
         }
     }
 }

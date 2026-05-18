@@ -1,0 +1,54 @@
+@model CustomerStatementDetailsViewModel
+@{
+    ViewData["Title"] = "Customer Statement";
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-address-book me-3"></i>@Model.Customer.Name</h1>
+        <p>Customer statement, invoice balance, and POS activity.</p>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="window.print()"><i class="fas fa-print me-2"></i>Print</button>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-cash-register stat-icon"></i><div class="stat-value">$@Model.PosSalesTotal.ToString("N0")</div><div class="stat-label">POS Sales</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card info"><i class="fas fa-file-invoice stat-icon"></i><div class="stat-value">$@Model.InvoiceTotal.ToString("N0")</div><div class="stat-label">Invoices</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card success"><i class="fas fa-money-bill stat-icon"></i><div class="stat-value">$@Model.PaidInvoiceTotal.ToString("N0")</div><div class="stat-label">Paid</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card warning"><i class="fas fa-hand-holding-dollar stat-icon"></i><div class="stat-value">$@Model.BalanceDue.ToString("N0")</div><div class="stat-label">Balance Due</div></div></div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-file-invoice me-2"></i>Invoices</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Invoice</th><th>Date</th><th>Status</th><th class="text-end">Total</th><th class="text-end">Paid</th><th class="text-end">Due</th></tr></thead>
+                    <tbody>
+                    @foreach (var invoice in Model.Invoices)
+                    {
+                        <tr><td>@invoice.DocumentNumber</td><td>@invoice.DocumentDate.ToString("MMM dd, yyyy")</td><td>@invoice.PaymentStatus</td><td class="text-end">$@invoice.TotalAmount.ToString("N2")</td><td class="text-end">$@invoice.PaidAmount.ToString("N2")</td><td class="text-end fw-bold">$@(Math.Max(invoice.TotalAmount - invoice.PaidAmount, 0).ToString("N2"))</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-receipt me-2"></i>POS Sales</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Sale</th><th>Date</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+                    <tbody>
+                    @foreach (var sale in Model.Sales)
+                    {
+                        <tr><td>@sale.SaleNumber</td><td>@sale.SaleDate.ToString("MMM dd, yyyy")</td><td>@sale.Status</td><td class="text-end">$@((sale.TotalAmount - sale.RefundedAmount).ToString("N2"))</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

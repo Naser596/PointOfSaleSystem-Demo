@@ -1,0 +1,50 @@
+@model List<Product>
+@using System.Globalization
+
+@if (Model != null && Model.Any())
+{
+    <div class="pos-product-grid" id="productGrid">
+        @foreach (var product in Model)
+        {
+            <button type="button"
+                class="pos-product-card @(product.Stock <= 0 ? "is-disabled" : "")"
+                data-id="@product.Id" data-name="@product.Name" data-price="@product.Price.ToString(CultureInfo.InvariantCulture)"
+                data-stock="@product.Stock" data-barcode="@product.Barcode"
+                onclick="addProductCardToCart(this)" @(product.Stock <= 0 ? "disabled" : "")>
+
+                <span class="pos-product-image">
+                    @if (!string.IsNullOrEmpty(product.ImagePath))
+                    {
+                        <img src="@product.ImagePath" alt="@product.Name" />
+                    }
+                    else
+                    {
+                        <span class="pos-product-placeholder"><i class="fas fa-cube"></i></span>
+                    }
+                </span>
+
+                <span class="pos-product-body">
+                    <span class="pos-product-name" title="@product.Name">@product.Name</span>
+                    <span class="pos-product-meta">
+                        <strong>$@product.Price.ToString("N2")</strong>
+                        @if (product.Stock > 0)
+                        {
+                            <span>@product.Stock left</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger fw-bold">Out</span>
+                        }
+                    </span>
+                </span>
+            </button>
+        }
+    </div>
+}
+else
+{
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-box-open fa-3x mb-3"></i>
+        <p>No products found in this category.</p>
+    </div>
+}

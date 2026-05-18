@@ -8,24 +8,22 @@ using WebApplication3.Services;
 namespace WebApplication3.Controllers
 {
     [Authorize]
-    public class POSController : Controller
+    public class POSController(
+        IProductService productService,
+        ICurrentCompanyService currentCompany,
+        ApplicationDbContext context,
+        IPOSOperationsService posOperations) : Controller
     {
-        private readonly IProductService _productService;
-        private readonly ICustomerService _customerService;
-        private readonly ApplicationDbContext _context;
-
-        public POSController(IProductService productService, ICustomerService customerService, ApplicationDbContext context)
-        {
-            _productService = productService;
-            _customerService = customerService;
-            _context = context;
-        }
+        private readonly IProductService _productService = productService;
+        private readonly ICurrentCompanyService _currentCompany = currentCompany;
+        private readonly ApplicationDbContext _context = context;
+        private readonly IPOSOperationsService _posOperations = posOperations;
 
         // GET: POS
-        public async Task<IActionResult> Index()
+        public IActionResult Index()
         {
-            var products = await _productService.GetAllProductsAsync();
-            return View(products);
+            // Initial load - return empty list to show placeholder
+            return View(new List<Product>());
         }
 
         // POST: POS/ProcessSale (CASH ONLY / DIRECT)
@@ -33,14 +31,25 @@ namespace WebApplication3.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessSale([FromBody] SaleRequest request)
         {
-            if (request?.Items == null || !request.Items.Any())
+            if (request?.Items == null || request.Items.Count == 0)
             {
                 return Json(new { success = false, message = "No items in cart" });
             }
 
             try
             {
-                var sale = await CreateSale(request.Items, "Cash", request.CustomerId);
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                var sale = await _posOperations.CreateSaleAsync(companyId, new PosSaleInput
+                {
+                    Items = request.Items.Select(i => new PosSaleItemInput
+                    {
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity
+                    }).ToList(),
+                    PaymentMethod = "Cash",
+                    CustomerId = request.CustomerId,
+                    DiscountCode = request.DiscountCode
+                }, User.Identity?.Name ?? "Unknown");
                 return Json(new { success = true, message = "Sale completed successfully!", saleNumber = sale.SaleNumber, saleId = sale.Id });
             }
             catch (Exception ex)
@@ -49,10 +58,38 @@ namespace WebApplication3.Controllers
             }
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SyncPendingSales([FromBody] List<OfflineSaleRequest> requests)
+        {
+            if (requests == null || requests.Count == 0)
+            {
+                return Json(new { success = true, results = Array.Empty<object>() });
+            }
+
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+            var syncInputs = requests.Select(request => new OfflineSaleSyncInput
+            {
+                ClientId = request.ClientId,
+                QueuedAt = request.QueuedAt,
+                LastError = request.LastError,
+                PaymentMethod = string.IsNullOrWhiteSpace(request.PaymentMethod) ? "Cash" : request.PaymentMethod,
+                CustomerId = request.CustomerId,
+                DiscountCode = request.DiscountCode,
+                Items = request.Items?.Select(i => new PosSaleItemInput
+                {
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity
+                }).ToList() ?? []
+            }).ToList();
+            var results = await _posOperations.SyncOfflineSalesAsync(companyId, syncInputs, User.Identity?.Name ?? "Unknown");
+            return Json(new { success = true, results });
+        }
+
         // POST: POS/CardTerminal (Step 1: Show Terminal)
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CardTerminal(string cartJson)
+        public async Task<IActionResult> CardTerminal(string cartJson, string? discountCode = null)
         {
             if (string.IsNullOrEmpty(cartJson))
             {
@@ -60,16 +97,17 @@ namespace WebApplication3.Controllers
             }
 
             var items = System.Text.Json.JsonSerializer.Deserialize<List<SaleItemRequest>>(cartJson);
-            if (items == null || !items.Any())
+            if (items == null || items.Count == 0)
             {
                 return RedirectToAction("Index");
             }
 
             // Calculate total for display
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
             decimal total = 0;
             foreach (var item in items)
             {
-                var product = await _context.Products.FindAsync(item.ProductId);
+                var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId && p.CompanyId == companyId);
                 if (product != null)
                 {
                     total += product.Price * item.Quantity;
@@ -80,7 +118,8 @@ namespace WebApplication3.Controllers
             {
                 CartJson = cartJson,
                 TotalAmount = total,
-                ItemCount = items.Sum(i => i.Quantity)
+                ItemCount = items.Sum(i => i.Quantity),
+                DiscountCode = discountCode,
             };
 
             return View(model);
@@ -99,14 +138,24 @@ namespace WebApplication3.Controllers
             try
             {
                 var items = System.Text.Json.JsonSerializer.Deserialize<List<SaleItemRequest>>(model.CartJson);
-                if (items == null || !items.Any())
+                if (items == null || items.Count == 0)
                 {
                     ModelState.AddModelError("", "Cart is empty.");
                     return View("CardTerminal", model);
                 }
 
-                var sale = await CreateSale(items, "Card");
-                
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                var sale = await _posOperations.CreateSaleAsync(companyId, new PosSaleInput
+                {
+                    Items = items.Select(i => new PosSaleItemInput
+                    {
+                        ProductId = i.ProductId,
+                        Quantity = i.Quantity
+                    }).ToList(),
+                    PaymentMethod = "Card",
+                    DiscountCode = model.DiscountCode
+                }, User.Identity?.Name ?? "Unknown");
+
                 // Redirect to receipt with clearCart flag
                 return RedirectToAction("Receipt", "Sales", new { id = sale.Id, clearCart = 1 });
             }
@@ -117,93 +166,38 @@ namespace WebApplication3.Controllers
             }
         }
 
-        private async Task<Sale> CreateSale(List<SaleItemRequest> items, string paymentMethod, int? customerId = null)
+        public async Task<IActionResult> Filter(string? searchTerm, int? categoryId)
         {
-            var sale = new Sale
+            var products = await _productService.GetProductsAsync(searchTerm, categoryId);
+            return PartialView("_PosProductGrid", products);
+        }
+
+        // GET: POS/GetProductByBarcode
+        public async Task<IActionResult> GetProductByBarcode(string barcode)
+        {
+            if (string.IsNullOrEmpty(barcode))
             {
-                SaleNumber = $"SALE-{DateTime.Now:yyyyMMddHHmmss}",
-                SaleDate = DateTime.Now,
-                Status = "Completed",
-                PaymentMethod = paymentMethod,
-                CustomerId = customerId,
-                SaleItems = new List<SaleItem>()
-            };
-
-            decimal total = 0;
-            var currentUser = User.Identity?.Name ?? "Unknown";
-            
-            // Track stock movements to set ReferenceId after sale is saved
-            var stockMovements = new List<StockMovement>();
-
-            foreach (var item in items)
-            {
-                var product = await _context.Products.FindAsync(item.ProductId);
-                if (product == null)
-                {
-                    throw new Exception($"Product not found: {item.ProductId}");
-                }
-
-                if (product.Stock < item.Quantity)
-                {
-                    throw new Exception($"Insufficient stock for {product.Name}");
-                }
-
-                var saleItem = new SaleItem
-                {
-                    ProductId = product.Id,
-                    Quantity = item.Quantity,
-                    UnitPrice = product.Price,
-                    TotalPrice = product.Price * item.Quantity
-                };
-
-                sale.SaleItems.Add(saleItem);
-                total += saleItem.TotalPrice;
-
-                // Capture previous stock
-                var previousStock = product.Stock;
-
-                // Update stock
-                product.Stock -= item.Quantity;
-                product.UpdatedDate = DateTime.Now;
-
-                // Create Stock Movement (ReferenceId will be set after sale is saved)
-                var movement = new StockMovement
-                {
-                    ProductId = product.Id,
-                    MovementType = "Sale", 
-                    Quantity = item.Quantity,
-                    PreviousStock = previousStock,
-                    NewStock = product.Stock,
-                    ReferenceType = "Sale",
-                    Notes = $"Sold in Sale #{sale.SaleNumber}",
-                    CreatedBy = currentUser,
-                    CreatedDate = DateTime.Now
-                };
-                
-                stockMovements.Add(movement);
+                return Json(new { success = false, message = "Barcode is empty" });
             }
 
-            sale.TotalAmount = total;
-
-            // Save sale first to get the generated Id
-            _context.Sales.Add(sale);
-            await _context.SaveChangesAsync();
-
-            // Now add stock movements with the correct ReferenceId
-            foreach (var movement in stockMovements)
+            var product = await _productService.GetProductByBarcodeAsync(barcode);
+            if (product != null)
             {
-                movement.ReferenceId = sale.Id;
-                _context.StockMovements.Add(movement);
-            }
-            await _context.SaveChangesAsync();
-
-            // Update Customer Stats
-            if (customerId.HasValue)
-            {
-                await _customerService.UpdateCustomerStatsAsync(customerId.Value, total);
+                return Json(new
+                {
+                    success = true,
+                    product = new
+                    {
+                        id = product.Id,
+                        name = product.Name,
+                        price = product.Price,
+                        stock = product.Stock,
+                        barcode = product.Barcode
+                    }
+                });
             }
 
-            return sale;
+            return Json(new { success = false, message = "Product not found" });
         }
     }
 
@@ -212,6 +206,14 @@ namespace WebApplication3.Controllers
         public List<SaleItemRequest>? Items { get; set; }
         public string PaymentMethod { get; set; } = "Cash";
         public int? CustomerId { get; set; }
+        public string? DiscountCode { get; set; }
+    }
+
+    public class OfflineSaleRequest : SaleRequest
+    {
+        public string ClientId { get; set; } = string.Empty;
+        public DateTime QueuedAt { get; set; }
+        public string? LastError { get; set; }
     }
 
     public class SaleItemRequest

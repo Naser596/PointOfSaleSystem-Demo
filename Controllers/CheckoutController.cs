@@ -1,18 +1,23 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using WebApplication3.Data;
 using WebApplication3.Models;
+using WebApplication3.Services;
 
 namespace WebApplication3.Controllers
 {
+    [Authorize]
     public class CheckoutController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly ICurrentCompanyService _currentCompany;
 
-        public CheckoutController(ApplicationDbContext context)
+        public CheckoutController(ApplicationDbContext context, ICurrentCompanyService currentCompany)
         {
             _context = context;
+            _currentCompany = currentCompany;
         }
 
         // POST: Checkout/Payment
@@ -115,9 +120,11 @@ namespace WebApplication3.Controllers
 
             try
             {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 // Create Sale (reusing logic from POSController.ProcessSale)
                 var sale = new Sale
                 {
+                    CompanyId = companyId,
                     SaleNumber = $"SALE-{DateTime.Now:yyyyMMddHHmmss}",
                     SaleDate = DateTime.Now,
                     Status = "Completed",
@@ -126,10 +133,11 @@ namespace WebApplication3.Controllers
                 };
 
                 decimal total = 0;
+                decimal taxTotal = 0;
 
                 foreach (var item in cartItems)
                 {
-                    var product = await _context.Products.FindAsync(item.ProductId);
+                    var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId && p.CompanyId == companyId);
                     if (product == null)
                     {
                         TempData["Error"] = $"Product not found: {item.Name}";
@@ -145,19 +153,27 @@ namespace WebApplication3.Controllers
                     var saleItem = new SaleItem
                     {
                         ProductId = product.Id,
+                        ProductNameSnapshot = product.Name,
+                        ProductSkuSnapshot = product.SKU,
                         Quantity = item.Quantity,
                         UnitPrice = product.Price,
+                        UnitCost = product.CostPrice,
+                        TaxRate = product.TaxRate,
                         TotalPrice = product.Price * item.Quantity
                     };
+                    saleItem.TaxAmount = CalculateIncludedTax(saleItem.TotalPrice, product.TaxRate);
 
                     sale.SaleItems.Add(saleItem);
                     total += saleItem.TotalPrice;
+                    taxTotal += saleItem.TaxAmount;
 
                     // Update stock
                     product.Stock -= item.Quantity;
                     product.UpdatedDate = DateTime.Now;
                 }
 
+                sale.SubTotal = total - taxTotal;
+                sale.TaxAmount = taxTotal;
                 sale.TotalAmount = total;
 
                 _context.Sales.Add(sale);
@@ -190,6 +206,12 @@ namespace WebApplication3.Controllers
             };
 
             return View(model);
+        }
+
+        private static decimal CalculateIncludedTax(decimal lineTotal, decimal taxRate)
+        {
+            if (taxRate <= 0 || lineTotal <= 0) return 0;
+            return Math.Round(lineTotal - (lineTotal / (1 + taxRate / 100)), 2);
         }
     }
 }

@@ -1,0 +1,274 @@
+@model PurchaseOrderDetailsViewModel
+@{
+    ViewData["Title"] = Model.Order.OrderNumber;
+    var receivableLines = Model.Order.Lines
+        .Where(l => l.Quantity > l.ReceivedQuantity)
+        .ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-truck-ramp-box me-3"></i>@Model.Order.OrderNumber</h1>
+        <p>@Model.Order.SupplierName - @Model.Order.Status</p>
+    </div>
+    <div class="document-toolbar">
+        <a asp-action="Print" asp-route-id="@Model.Order.Id" target="_blank" class="btn btn-primary">
+            <i class="fas fa-print me-2"></i>Print PO
+        </a>
+        <a asp-action="DownloadPdf" asp-route-id="@Model.Order.Id" class="btn btn-success">
+            <i class="fas fa-file-pdf me-2"></i>PDF
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="document-layout">
+    <div class="document-paper">
+        <div class="document-paper-header">
+            <div>
+                <h2 class="document-paper-title">Purchase Order</h2>
+                <div class="text-muted">@Model.Order.OrderNumber</div>
+            </div>
+            <div class="text-md-end">
+                <span class="status-pill">@Model.Order.Status</span>
+            </div>
+        </div>
+
+        <div class="document-meta-grid">
+            <div>
+                <div class="document-block-label">Supplier</div>
+                <div class="document-block-value">@Model.Order.SupplierName</div>
+            </div>
+            <div>
+                <div class="document-block-label">Dates</div>
+                <div>Order: @Model.Order.OrderDate.ToString("MMM dd, yyyy")</div>
+                <div>Expected: @(Model.Order.ExpectedDate?.ToString("MMM dd, yyyy") ?? "-")</div>
+            </div>
+        </div>
+
+        @if (Model.Order.Lines.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Product</th>
+                            <th class="money-cell">Ordered</th>
+                            <th class="money-cell">Received</th>
+                            <th class="money-cell">Unit Cost</th>
+                            <th class="money-cell">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Model.Order.Lines)
+                        {
+                            <tr>
+                                <td><strong>@line.Description</strong></td>
+                                <td>@(line.Product?.Name ?? "-")</td>
+                                <td class="money-cell">@line.Quantity.ToString("N2")</td>
+                                <td class="money-cell">@line.ReceivedQuantity.ToString("N2")</td>
+                                <td class="money-cell">$@line.UnitCost.ToString("N2")</td>
+                                <td class="money-cell fw-semibold">$@line.LineTotal.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="state-card">
+                <i class="fas fa-list fa-3x mb-3"></i>
+                <p>No purchase lines yet.</p>
+            </div>
+        }
+    </div>
+
+    <aside class="document-side-panel">
+        <div class="erp-surface">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-circle-info me-2"></i>Summary</h2>
+                    <p class="erp-surface-subtitle">Purchase totals</p>
+                </div>
+            </div>
+            <div class="totals-panel">
+                <div class="totals-row"><span>Subtotal</span><strong>$@Model.Order.SubTotal.ToString("N2")</strong></div>
+                <div class="totals-row"><span>Tax</span><strong>$@Model.Order.TaxAmount.ToString("N2")</strong></div>
+                <div class="totals-row total"><span>Total</span><strong>$@Model.Order.TotalAmount.ToString("N2")</strong></div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div class="inline-action-card mt-4">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-plus me-2"></i>Add Purchase Line</h2>
+            <p class="erp-surface-subtitle">Add product or custom supplier cost lines.</p>
+        </div>
+    </div>
+    <div class="form-section">
+        <form asp-action="AddLine" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="PurchaseOrderId" value="@Model.Order.Id" />
+            <div class="col-md-3">
+                <label class="form-label">Product</label>
+                <select name="ProductId" class="form-select">
+                    <option value="">Custom item</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Id">@product.Name - cost $@product.CostPrice.ToString("N2")</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Description</label>
+                <input name="Description" class="form-control" placeholder="Auto from product" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Qty</label>
+                <input name="Quantity" type="number" step="0.001" min="0.001" class="form-control" value="1" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Unit Cost</label>
+                <input name="UnitCost" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">Tax %</label>
+                <input name="TaxRate" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus"></i></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="inline-action-card">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-boxes-stacked me-2"></i>Goods Receipt</h2>
+            <p class="erp-surface-subtitle">Post received quantities into warehouse stock.</p>
+        </div>
+    </div>
+    <div class="form-section">
+        @if (receivableLines.Any())
+        {
+            <form asp-action="Receive" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="PurchaseOrderId" value="@Model.Order.Id" />
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Warehouse</label>
+                        <select name="WarehouseId" class="form-select" required>
+                            <option value="">Select warehouse</option>
+                            @foreach (var warehouse in Model.Warehouses)
+                            {
+                                <option value="@warehouse.Id">@warehouse.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Location</label>
+                        <select name="StockLocationId" class="form-select">
+                            <option value="">No location</option>
+                            @foreach (var location in Model.Locations)
+                            {
+                                <option value="@location.Id">@location.Warehouse.Name - @location.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Receipt Date</label>
+                        <input name="ReceiptDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
+                <div class="table-responsive mb-3">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="money-cell">Remaining</th>
+                                <th class="money-cell">Receive Now</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < receivableLines.Count; i++)
+                            {
+                                var line = receivableLines[i];
+                                var remaining = line.Quantity - line.ReceivedQuantity;
+                                <tr>
+                                    <td>
+                                        <strong>@line.Description</strong>
+                                        <div class="small text-muted">@(line.Product?.Name ?? "Custom item")</div>
+                                        <input type="hidden" name="Lines[@i].PurchaseOrderLineId" value="@line.Id" />
+                                    </td>
+                                    <td class="money-cell">@remaining.ToString("N2")</td>
+                                    <td class="money-cell">
+                                        <input name="Lines[@i].Quantity" type="number" step="0.001" min="0" max="@remaining" class="form-control text-end" value="@remaining" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-boxes-stacked me-2"></i>Post Goods Receipt
+                </button>
+            </form>
+        }
+        else
+        {
+            <div class="state-card">
+                <i class="fas fa-boxes-stacked fa-3x mb-3"></i>
+                <p>All lines are received or no receivable product lines exist.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="data-table-card">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-receipt me-2"></i>Receipts</h2>
+            <p class="erp-surface-subtitle">Goods receipt history for this purchase order.</p>
+        </div>
+    </div>
+    @if (Model.Receipts.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Receipt</th>
+                        <th>Date</th>
+                        <th>Lines</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var receipt in Model.Receipts)
+                    {
+                        <tr>
+                            <td><strong>@receipt.ReceiptNumber</strong></td>
+                            <td>@receipt.ReceiptDate.ToString("MMM dd, yyyy")</td>
+                            <td>@receipt.Lines.Count</td>
+                            <td><span class="status-pill success">@receipt.Status</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="state-card">
+            <i class="fas fa-receipt fa-3x mb-3"></i>
+            <p>No goods receipts posted yet.</p>
+        </div>
+    }
+</div>

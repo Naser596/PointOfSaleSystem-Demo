@@ -6,14 +6,10 @@ using WebApplication3.Services;
 namespace WebApplication3.Controllers
 {
     [Authorize(Roles = "Admin")]
-    public class CategoriesController : Controller
+    public class CategoriesController(ICategoryService categoryService, IAuditLogService auditLog) : Controller
     {
-        private readonly ICategoryService _categoryService;
-
-        public CategoriesController(ICategoryService categoryService)
-        {
-            _categoryService = categoryService;
-        }
+        private readonly ICategoryService _categoryService = categoryService;
+        private readonly IAuditLogService _auditLog = auditLog;
 
         // GET: Categories
         public async Task<IActionResult> Index()
@@ -36,6 +32,7 @@ namespace WebApplication3.Controllers
             if (ModelState.IsValid)
             {
                 await _categoryService.CreateCategoryAsync(category);
+                await _auditLog.LogAsync("Create", nameof(Category), category.Id.ToString(), $"Created category {category.Name}");
                 TempData["Success"] = "Category created successfully!";
                 return RedirectToAction(nameof(Index));
             }
@@ -66,6 +63,7 @@ namespace WebApplication3.Controllers
             if (ModelState.IsValid)
             {
                 await _categoryService.UpdateCategoryAsync(category);
+                await _auditLog.LogAsync("Update", nameof(Category), category.Id.ToString(), $"Updated category {category.Name}");
                 TempData["Success"] = "Category updated successfully!";
                 return RedirectToAction(nameof(Index));
             }
@@ -95,7 +93,12 @@ namespace WebApplication3.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            var category = await _categoryService.GetCategoryByIdAsync(id);
             await _categoryService.DeleteCategoryAsync(id, User.Identity?.Name);
+            if (category != null)
+            {
+                await _auditLog.LogAsync("Delete", nameof(Category), category.Id.ToString(), $"Deleted category {category.Name}");
+            }
             TempData["Success"] = "Category deleted successfully!";
             return RedirectToAction(nameof(Index));
         }

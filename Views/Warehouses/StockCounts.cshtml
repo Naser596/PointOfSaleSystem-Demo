@@ -1,0 +1,74 @@
+@model List<StockCount>
+@{
+    ViewData["Title"] = "Stock Counts";
+    var warehouses = ViewBag.Warehouses as List<Warehouse> ?? [];
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-clipboard-check me-3"></i>Stock Counts</h1>
+        <p>Create physical counts, enter counted quantities, and post variance adjustments.</p>
+    </div>
+    <a href="/Warehouses" class="btn btn-outline-secondary"><i class="fas fa-warehouse me-2"></i>Warehouses</a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-plus me-2"></i>New Stock Count</div>
+    <div class="card-body">
+        <form asp-action="CreateStockCount" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-4">
+                <label class="form-label">Warehouse</label>
+                <select name="WarehouseId" class="form-select" required>
+                    <option value="">Select warehouse</option>
+                    @foreach (var warehouse in warehouses)
+                    {
+                        <option value="@warehouse.Id">@warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Count Date</label>
+                <input name="CountDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" class="form-control" />
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Notes</label>
+                <input name="Notes" class="form-control" />
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-success"><i class="fas fa-plus me-2"></i>Create Count</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="fas fa-list me-2"></i>Counts</div>
+    <div class="card-body p-0">
+        @if (Model.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead><tr><th>Count</th><th>Warehouse</th><th>Date</th><th>Lines</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                    @foreach (var count in Model)
+                    {
+                        <tr>
+                            <td><strong>@count.CountNumber</strong><div class="small text-muted">@count.Notes</div></td>
+                            <td>@count.Warehouse.Name</td>
+                            <td>@count.CountDate.ToString("MMM dd, yyyy")</td>
+                            <td>@count.Lines.Count</td>
+                            <td><span class="badge @(count.Status == "Posted" ? "bg-success" : "bg-warning text-dark")">@count.Status</span></td>
+                            <td class="text-end"><a asp-action="StockCountDetails" asp-route-id="@count.Id" class="btn btn-sm btn-outline-primary">Open</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state"><i class="fas fa-clipboard-check fa-3x mb-3"></i><p>No stock counts yet.</p></div>
+        }
+    </div>
+</div>

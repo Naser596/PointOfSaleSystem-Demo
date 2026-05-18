@@ -1,0 +1,156 @@
+@model List<AuditLog>
+@{
+    ViewData["Title"] = "Audit Logs";
+    var actions = ViewBag.Actions as List<string> ?? [];
+    var entities = ViewBag.Entities as List<string> ?? [];
+    string? selectedAction = ViewBag.AuditAction as string;
+    string? selectedEntity = ViewBag.Entity as string;
+    DateTime? dateFrom = ViewBag.DateFrom as DateTime?;
+    DateTime? dateTo = ViewBag.DateTo as DateTime?;
+    var todayCount = ViewBag.TodayCount as int? ?? 0;
+    var changeCount = ViewBag.ChangeCount as int? ?? 0;
+    DateTime? lastActivity = ViewBag.LastActivity as DateTime?;
+}
+
+<div class="page-header">
+    <h1><i class="fas fa-clipboard-check me-3"></i>Audit Logs</h1>
+    <p>Company activity trail for sensitive operational changes.</p>
+    <a class="btn btn-success" href="@Url.Action("Export", new { auditAction = selectedAction, entity = selectedEntity, dateFrom, dateTo })">
+        <i class="fas fa-file-excel me-2"></i>Export Excel
+    </a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card primary">
+            <i class="fas fa-calendar-day stat-icon"></i>
+            <div class="stat-value">@todayCount</div>
+            <div class="stat-label">Activities Today</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card success">
+            <i class="fas fa-pen-to-square stat-icon"></i>
+            <div class="stat-value">@changeCount</div>
+            <div class="stat-label">Tracked Changes</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card warning">
+            <i class="fas fa-clock stat-icon"></i>
+            <div class="stat-value audit-last-activity">@(lastActivity?.ToString("MMM dd, HH:mm") ?? "-")</div>
+            <div class="stat-label">Last Activity</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Action</label>
+                <select name="auditAction" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var item in actions)
+                    {
+                        <option value="@item" selected="@(item == selectedAction)">@item</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Entity</label>
+                <select name="entity" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var item in entities)
+                    {
+                        <option value="@item" selected="@(item == selectedEntity)">@item</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">From</label>
+                <input name="dateFrom" type="date" class="form-control" value="@(dateFrom?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">To</label>
+                <input name="dateTo" type="date" class="form-control" value="@(dateTo?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-2"></i>Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-list me-2"></i>Recent Activity
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Any())
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Entity</th>
+                            <th>Summary</th>
+                            <th>Change</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@log.CreatedDate.ToString("MMM dd, yyyy")</strong>
+                                    <div class="small text-muted">@log.CreatedDate.ToString("HH:mm:ss")</div>
+                                </td>
+                                <td>@(log.UserName ?? "System")</td>
+                                <td><span class="badge bg-primary">@log.Action</span></td>
+                                <td>
+                                    <strong>@log.EntityName</strong>
+                                    @if (!string.IsNullOrWhiteSpace(log.EntityId))
+                                    {
+                                        <div class="small text-muted">ID @log.EntityId</div>
+                                    }
+                                </td>
+                                <td>@(log.Summary ?? "-")</td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(log.BeforeJson) || !string.IsNullOrWhiteSpace(log.AfterJson))
+                                    {
+                                        <details>
+                                            <summary>Before / After</summary>
+                                            <div class="small text-muted mt-2">Before</div>
+                                            <pre class="audit-json">@log.BeforeJson</pre>
+                                            <div class="small text-muted">After</div>
+                                            <pre class="audit-json">@log.AfterJson</pre>
+                                        </details>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td><span class="small text-muted">@(log.IpAddress ?? "-")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-clipboard-check fa-3x mb-3"></i>
+                <p>No audit logs found for this filter.</p>
+            </div>
+        }
+    </div>
+</div>

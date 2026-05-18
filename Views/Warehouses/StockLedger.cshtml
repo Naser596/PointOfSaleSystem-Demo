@@ -1,0 +1,299 @@
+@model InventoryControlViewModel
+@{
+    ViewData["Title"] = "Inventory Control";
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-clipboard-list me-3"></i>Inventory Control</h1>
+        <p>Stock ledger, warehouse balances, reserved stock, and reorder suggestions.</p>
+    </div>
+    <div class="page-actions">
+        <a href="/Warehouses" class="btn btn-outline-secondary">
+            <i class="fas fa-warehouse me-2"></i>Warehouses
+        </a>
+        <a href="/Purchasing" class="btn btn-primary">
+            <i class="fas fa-truck-ramp-box me-2"></i>Purchasing
+        </a>
+    </div>
+</div>
+
+<form method="get" class="filter-shell">
+    <div class="row g-3 flex-grow-1">
+        <div class="col-md-6">
+            <label class="form-label fw-bold" for="productId">Product</label>
+            <select id="productId" name="productId" class="form-select">
+                <option value="">All products</option>
+                @foreach (var product in Model.Products)
+                {
+                    <option value="@product.Id" selected="@(Model.ProductId == product.Id)">@product.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-bold" for="warehouseId">Warehouse</label>
+            <select id="warehouseId" name="warehouseId" class="form-select">
+                <option value="">All warehouses</option>
+                @foreach (var warehouse in Model.Warehouses)
+                {
+                    <option value="@warehouse.Id" selected="@(Model.WarehouseId == warehouse.Id)">@warehouse.Name</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-filter me-2"></i>Apply
+        </button>
+        <a href="/Warehouses/StockLedger" class="btn btn-outline-secondary">
+            <i class="fas fa-rotate-left me-2"></i>Reset
+        </a>
+    </div>
+</form>
+
+<section class="dashboard-metric-grid" aria-label="Inventory control metrics">
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-boxes-stacked"></i></div>
+        <div>
+            <div class="metric-card-value">@Model.Stocks.Sum(s => s.QuantityOnHand).ToString("N0")</div>
+            <div class="metric-card-label">On hand</div>
+            <div class="metric-card-note">Filtered warehouse stock</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-lock"></i></div>
+        <div>
+            <div class="metric-card-value">@Model.Stocks.Sum(s => s.QuantityReserved).ToString("N0")</div>
+            <div class="metric-card-label">Reserved</div>
+            <div class="metric-card-note">Committed stock quantity</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div>
+            <div class="metric-card-value">@Model.ReorderSuggestions.Count</div>
+            <div class="metric-card-label">Reorder items</div>
+            <div class="metric-card-note">Products at or below minimum</div>
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-card-icon"><i class="fas fa-coins"></i></div>
+        <div>
+            <div class="metric-card-value">$@Model.Stocks.Sum(s => s.QuantityOnHand * s.Product.CostPrice).ToString("N2")</div>
+            <div class="metric-card-label">Stock value</div>
+            <div class="metric-card-note">On hand at product cost</div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-xl-7">
+        <div class="data-table-card mb-4">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-warehouse me-2"></i>Warehouse Balances</h2>
+                    <p class="erp-surface-subtitle">On hand, reserved, available, and valuation by product/location.</p>
+                </div>
+            </div>
+            @if (Model.Stocks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Warehouse</th>
+                                <th>Location</th>
+                                <th class="money-cell">On Hand</th>
+                                <th class="money-cell">Reserved</th>
+                                <th class="money-cell">Available</th>
+                                <th class="money-cell">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stock in Model.Stocks)
+                            {
+                                var available = stock.QuantityOnHand - stock.QuantityReserved;
+                                <tr>
+                                    <td>
+                                        <strong>@stock.Product.Name</strong>
+                                        <div class="table-entity-meta">@(stock.Product.SKU ?? "-")</div>
+                                    </td>
+                                    <td>@stock.Warehouse.Name</td>
+                                    <td>@(stock.StockLocation?.Name ?? "-")</td>
+                                    <td class="money-cell">@stock.QuantityOnHand.ToString("N2")</td>
+                                    <td class="money-cell">@stock.QuantityReserved.ToString("N2")</td>
+                                    <td class="money-cell fw-semibold @(available <= 0 ? "text-danger" : "text-success")">@available.ToString("N2")</td>
+                                    <td class="money-cell">$@((stock.QuantityOnHand * stock.Product.CostPrice).ToString("N2"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="state-card">
+                    <i class="fas fa-boxes-stacked fa-3x mb-3"></i>
+                    <p>No warehouse stock found for the selected filters.</p>
+                    <a href="/Purchasing" class="btn btn-primary">Open Purchasing</a>
+                </div>
+            }
+        </div>
+
+        <div class="data-table-card">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-clock-rotate-left me-2"></i>Stock Movement Ledger</h2>
+                    <p class="erp-surface-subtitle">Recent stock movements from POS, returns, restocks, and adjustments.</p>
+                </div>
+            </div>
+            @if (Model.StockMovements.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Product</th>
+                                <th>Type</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Before</th>
+                                <th class="text-end">After</th>
+                                <th>Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var movement in Model.StockMovements)
+                            {
+                                <tr>
+                                    <td>@movement.CreatedDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                    <td><strong>@movement.Product.Name</strong></td>
+                                    <td><span class="status-pill info">@movement.MovementType</span></td>
+                                    <td class="text-end">@movement.Quantity</td>
+                                    <td class="text-end">@movement.PreviousStock</td>
+                                    <td class="text-end">@movement.NewStock</td>
+                                    <td>
+                                        @(movement.ReferenceType ?? "-")
+                                        @if (movement.ReferenceId.HasValue)
+                                        {
+                                            <span class="text-muted">#@movement.ReferenceId</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(movement.Notes))
+                                        {
+                                            <div class="table-entity-meta">@movement.Notes</div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="state-card">
+                    <i class="fas fa-clock-rotate-left fa-3x mb-3"></i>
+                    <p>No stock movement history found for the selected filters.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-xl-5">
+        <div class="data-table-card">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-cart-plus me-2"></i>Reorder Suggestions</h2>
+                    <p class="erp-surface-subtitle">Suggested purchase quantities from current stock and minimum stock.</p>
+                </div>
+            </div>
+            @if (Model.ReorderSuggestions.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="text-end">Stock</th>
+                                <th class="text-end">Min</th>
+                                <th class="text-end">Suggest</th>
+                                <th class="money-cell">Est. Cost</th>
+                                <th class="text-end">PO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var suggestion in Model.ReorderSuggestions)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@suggestion.ProductName</strong>
+                                        <div class="table-entity-meta">@(suggestion.Sku ?? "-")</div>
+                                    </td>
+                                    <td class="text-end"><span class="status-pill warning">@suggestion.CurrentStock</span></td>
+                                    <td class="text-end">@suggestion.MinStock</td>
+                                    <td class="text-end fw-bold">@suggestion.SuggestedQuantity</td>
+                                    <td class="money-cell">$@suggestion.EstimatedCost.ToString("N2")</td>
+                                    <td class="text-end">
+                                        <form asp-controller="Purchasing" asp-action="CreateFromReorder" method="post" class="d-flex gap-2 justify-content-end">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="ProductId" value="@suggestion.ProductId" />
+                                            <input type="hidden" name="SuggestedQuantity" value="@suggestion.SuggestedQuantity" />
+                                            <input name="SupplierName" class="form-control form-control-sm" placeholder="Supplier" style="max-width: 140px;" required />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Create PO</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="state-card">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>No products are below their reorder threshold.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="data-table-card mt-4">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-barcode me-2"></i>Batch / Serial Register</h2>
+            <p class="erp-surface-subtitle">Traceability records filtered by product and warehouse.</p>
+        </div>
+    </div>
+    @if (Model.TraceLots.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Product</th><th>Type</th><th>Number</th><th>Warehouse</th><th class="text-end">Qty</th><th>Expiry</th><th>Status</th></tr></thead>
+                <tbody>
+                @foreach (var lot in Model.TraceLots)
+                {
+                    <tr>
+                        <td><strong>@lot.Product.Name</strong></td>
+                        <td>@lot.TraceType</td>
+                        <td><code>@lot.TraceNumber</code></td>
+                        <td>@(lot.Warehouse?.Name ?? "-")</td>
+                        <td class="text-end">@lot.Quantity.ToString("N2")</td>
+                        <td>@(lot.ExpiryDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                        <td><span class="status-pill success">@lot.Status</span></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="state-card">
+            <i class="fas fa-barcode fa-3x mb-3"></i>
+            <p>No batch or serial records for the selected filters.</p>
+        </div>
+    }
+</div>

@@ -1,0 +1,226 @@
+@model ReportBuilderViewModel
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-chart-line me-3"></i>Reports</h1>
+        <p>Operational, sales, purchasing, payroll, inventory, and accounting report builder.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="@Url.Action("Export", new { dateFrom = Model.DateFrom, dateTo = Model.DateTo })" class="btn btn-success"><i class="fas fa-file-excel me-2"></i>Export Excel</a>
+        <a href="@Url.Action("AccountingExport", new { dateFrom = Model.DateFrom, dateTo = Model.DateTo })" class="btn btn-outline-primary"><i class="fas fa-file-csv me-2"></i>Accounting CSV</a>
+        <a href="/Erp" class="btn btn-outline-secondary"><i class="fas fa-sitemap me-2"></i>ERP Core</a>
+    </div>
+</div>
+
+<form method="get" class="card mb-4">
+    <div class="card-body row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">From</label>
+            <input name="dateFrom" type="date" value="@Model.DateFrom.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">To</label>
+            <input name="dateTo" type="date" value="@Model.DateTo.ToString("yyyy-MM-dd")" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter me-2"></i>Run Report</button>
+        </div>
+    </div>
+</form>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-file-invoice stat-icon"></i><div class="stat-value">$@Model.NetSalesTotal.ToString("N0")</div><div class="stat-label">Net Invoice Revenue</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card success"><i class="fas fa-money-bill stat-icon"></i><div class="stat-value">$@Model.PaidInvoicesTotal.ToString("N0")</div><div class="stat-label">Paid Invoices</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card warning"><i class="fas fa-truck-ramp-box stat-icon"></i><div class="stat-value">$@Model.PurchaseOrdersTotal.ToString("N0")</div><div class="stat-label">Purchase Orders</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card info"><i class="fas fa-boxes-stacked stat-icon"></i><div class="stat-value">$@Model.InventoryValue.ToString("N0")</div><div class="stat-label">Inventory Value</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card secondary"><i class="fas fa-chart-simple stat-icon"></i><div class="stat-value">$@Model.QuotesPipelineTotal.ToString("N0")</div><div class="stat-label">Open Quotes Pipeline</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card secondary"><i class="fas fa-clipboard-list stat-icon"></i><div class="stat-value">$@Model.OrdersPipelineTotal.ToString("N0")</div><div class="stat-label">Open Orders Pipeline</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card danger"><i class="fas fa-rotate-left stat-icon"></i><div class="stat-value">$@Model.CreditNotesTotal.ToString("N0")</div><div class="stat-label">Credit Notes</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card secondary"><i class="fas fa-file-invoice-dollar stat-icon"></i><div class="stat-value">$@Model.SupplierInvoicesTotal.ToString("N0")</div><div class="stat-label">Supplier Invoices</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card warning"><i class="fas fa-hand-holding-dollar stat-icon"></i><div class="stat-value">$@Model.OpenObligationsTotal.ToString("N0")</div><div class="stat-label">Open Obligations</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-users-gear stat-icon"></i><div class="stat-value">$@Model.PayrollTotal.ToString("N0")</div><div class="stat-label">Payroll</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card success"><i class="fas fa-users stat-icon"></i><div class="stat-value">@Model.EmployeeCount</div><div class="stat-label">Active Employees</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card info"><i class="fas fa-file-lines stat-icon"></i><div class="stat-value">@Model.InvoiceCount / @Model.QuoteCount / @Model.OrderCount</div><div class="stat-label">Invoices / Quotes / Orders</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card success"><i class="fas fa-scale-balanced stat-icon"></i><div class="stat-value">$@Model.GrossProfitTotal.ToString("N0")</div><div class="stat-label">Gross Profit</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card danger"><i class="fas fa-receipt stat-icon"></i><div class="stat-value">$@Model.OperatingExpenseTotal.ToString("N0")</div><div class="stat-label">Operating Expenses</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-vault stat-icon"></i><div class="stat-value">$@Model.CashNetTotal.ToString("N0")</div><div class="stat-label">Net Cash Movement</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card warning"><i class="fas fa-box-open stat-icon"></i><div class="stat-value">@Model.StockAlertCount</div><div class="stat-label">Stock Alerts</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-chart-line me-2"></i>Profit Snapshot</div>
+            <div class="card-body">
+                <div class="finance-row"><span>Invoice Revenue</span><strong>$@Model.InvoiceRevenueTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Credit Notes</span><strong>-$@Model.CreditNotesTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Cost of Goods Sold</span><strong>-$@Model.CostOfGoodsSoldTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Operating Expenses</span><strong>-$@Model.OperatingExpenseTotal.ToString("N2")</strong></div>
+                <div class="finance-row border-top pt-3"><span>Net Profit</span><strong class="@(Model.NetProfitTotal >= 0 ? "text-success" : "text-danger")">$@Model.NetProfitTotal.ToString("N2")</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-money-bill-transfer me-2"></i>Cashflow Snapshot</div>
+            <div class="card-body">
+                <div class="finance-row"><span>Cash In</span><strong class="text-success">$@Model.CashInTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Cash Out</span><strong class="text-danger">$@Model.CashOutTotal.ToString("N2")</strong></div>
+                <div class="finance-row border-top pt-3"><span>Net Cash</span><strong>$@Model.CashNetTotal.ToString("N2")</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-building-columns me-2"></i>Balance Snapshot</div>
+            <div class="card-body">
+                <div class="finance-row"><span>Accounts Receivable</span><strong>$@Model.AccountsReceivableTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Inventory Value</span><strong>$@Model.InventoryValue.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Accounts Payable</span><strong>$@Model.AccountsPayableTotal.ToString("N2")</strong></div>
+                <div class="finance-row"><span>Purchase Variance</span><strong>$@Model.PurchaseVarianceTotal.ToString("N2")</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-hand-holding-dollar me-2"></i>Accounts Receivable Aging</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>Customer</th><th class="text-end">Current</th><th class="text-end">1-30</th><th class="text-end">31-60</th><th class="text-end">61+</th><th class="text-end">Total</th></tr></thead>
+                        <tbody>
+                        @foreach (var row in Model.ReceivablesAging)
+                        {
+                            <tr><td>@row.CustomerName</td><td class="text-end">$@row.Current.ToString("N2")</td><td class="text-end">$@row.Days1To30.ToString("N2")</td><td class="text-end">$@row.Days31To60.ToString("N2")</td><td class="text-end">$@row.Days61Plus.ToString("N2")</td><td class="text-end fw-bold">$@row.Total.ToString("N2")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-file-circle-exclamation me-2"></i>Accounts Payable Aging</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>Payee</th><th>Source</th><th class="text-end">Current</th><th class="text-end">1-30</th><th class="text-end">31-60</th><th class="text-end">61+</th><th class="text-end">Total</th></tr></thead>
+                        <tbody>
+                        @foreach (var row in Model.PayablesAging)
+                        {
+                            <tr><td>@row.PayeeName</td><td>@row.Source</td><td class="text-end">$@row.Current.ToString("N2")</td><td class="text-end">$@row.Days1To30.ToString("N2")</td><td class="text-end">$@row.Days31To60.ToString("N2")</td><td class="text-end">$@row.Days61Plus.ToString("N2")</td><td class="text-end fw-bold">$@row.Total.ToString("N2")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-warehouse me-2"></i>Inventory Valuation</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>Product</th><th>Warehouse</th><th class="text-end">On Hand</th><th class="text-end">Cost</th><th class="text-end">Value</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach (var row in Model.InventoryValuation)
+                        {
+                            <tr><td><strong>@row.ProductName</strong><div class="small text-muted">@row.Sku</div></td><td>@row.WarehouseName</td><td class="text-end">@row.QuantityOnHand.ToString("N2")</td><td class="text-end">$@row.UnitCost.ToString("N2")</td><td class="text-end fw-bold">$@row.Value.ToString("N2")</td><td><span class="badge @(row.IsLowStock ? "bg-danger" : "bg-success")">@(row.IsLowStock ? "Low" : "OK")</span></td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-truck-ramp-box me-2"></i>Purchase Variance</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>PO</th><th>Supplier</th><th class="text-end">Ordered</th><th class="text-end">Received</th><th class="text-end">Invoiced</th><th class="text-end">Variance</th></tr></thead>
+                        <tbody>
+                        @foreach (var row in Model.PurchaseVariance)
+                        {
+                            <tr><td><a href="/Purchasing/Details/@row.PurchaseOrderId"><strong>@row.OrderNumber</strong></a><div class="small text-muted">@row.Status</div></td><td>@row.SupplierName</td><td class="text-end">$@row.OrderedValue.ToString("N2")</td><td class="text-end">$@row.ReceivedValue.ToString("N2")</td><td class="text-end">$@row.InvoicedValue.ToString("N2")</td><td class="text-end fw-bold @(row.Variance == 0 ? "text-success" : "text-warning")">$@row.Variance.ToString("N2")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="fas fa-address-book me-2"></i>Customer Statements</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead><tr><th>Customer</th><th class="text-end">POS Sales</th><th class="text-end">Invoices</th><th class="text-end">Paid</th><th class="text-end">Balance Due</th><th>Last Activity</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.CustomerStatements)
+                {
+                    <tr><td><strong>@row.CustomerName</strong></td><td class="text-end">$@row.PosSalesTotal.ToString("N2")</td><td class="text-end">$@row.InvoiceTotal.ToString("N2")</td><td class="text-end">$@row.PaidInvoiceTotal.ToString("N2")</td><td class="text-end fw-bold @(row.BalanceDue > 0 ? "text-danger" : "text-success")">$@row.BalanceDue.ToString("N2")</td><td>@(row.LastActivity?.ToString("MMM dd, yyyy") ?? "-")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-file-invoice me-2"></i>Recent Sales Documents</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Document</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+                    <tbody>
+                    @foreach (var doc in Model.RecentSalesDocuments)
+                    {
+                        <tr><td><strong>@doc.DocumentNumber</strong><div class="small text-muted">@doc.DocumentType</div></td><td>@doc.Status / @doc.PaymentStatus</td><td class="text-end">$@doc.TotalAmount.ToString("N2")</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-book me-2"></i>Recent Journal Entries</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Entry</th><th>Source</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead>
+                    <tbody>
+                    @foreach (var entry in Model.RecentJournalEntries)
+                    {
+                        <tr><td><strong>@entry.EntryNumber</strong><div class="small text-muted">@entry.Description</div></td><td>@entry.SourceType</td><td class="text-end">$@entry.TotalDebit.ToString("N2")</td><td class="text-end">$@entry.TotalCredit.ToString("N2")</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,149 @@
+@model CompanyEditViewModel
+@{
+    ViewData["Title"] = "Edit Company";
+}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="fas fa-pen me-3"></i>Edit Company</h1>
+        <p>Control company branding and business details from Super Admin.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<form asp-action="EditCompany" asp-route-id="@Model.Id" enctype="multipart/form-data">
+    <input asp-for="Id" type="hidden" />
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-image me-2"></i>Branding</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        @if (!string.IsNullOrEmpty(Model.CurrentLogoPath))
+                        {
+                            <img src="@Model.CurrentLogoPath" class="img-fluid rounded border p-2" style="max-height: 150px;" alt="Company logo" />
+                        }
+                        else
+                        {
+                            <div class="border rounded p-4 text-muted">No logo uploaded</div>
+                        }
+                    </div>
+                    <label asp-for="LogoFile" class="form-label"></label>
+                    <input asp-for="LogoFile" class="form-control" type="file" accept=".jpg,.jpeg,.png,.webp" />
+                    <div class="mt-3">
+                        <label asp-for="PrimaryColor" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="PrimaryColor" class="form-control" />
+                            <input value="@Model.PrimaryColor" type="color" class="form-control form-control-color" onchange="document.getElementById('PrimaryColor').value=this.value" />
+                        </div>
+                        <span asp-validation-for="PrimaryColor" class="text-danger"></span>
+                    </div>
+                    <div class="form-check form-switch mt-3">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label">Company is active</label>
+                    </div>
+                    @if (Model.PlatformDisabledDate.HasValue)
+                    {
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <strong>Disabled:</strong> @Model.PlatformDisabledDate.Value.ToString("MMM dd, yyyy HH:mm")
+                            @if (!string.IsNullOrWhiteSpace(Model.PlatformDisabledReason))
+                            {
+                                <div class="small">@Model.PlatformDisabledReason</div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-building me-2"></i>Company Details</h5>
+                </div>
+                <div class="card-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="DisplayName" class="form-label"></label>
+                            <input asp-for="DisplayName" class="form-control" />
+                            <span asp-validation-for="DisplayName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="LegalName" class="form-label"></label>
+                            <input asp-for="LegalName" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="TaxNumber" class="form-label"></label>
+                            <input asp-for="TaxNumber" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label"></label>
+                            <input asp-for="Email" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Phone" class="form-label"></label>
+                            <input asp-for="Phone" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Address" class="form-label"></label>
+                            <input asp-for="Address" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="InvoicePrefix" class="form-label"></label>
+                            <input asp-for="InvoicePrefix" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="CurrencyCode" class="form-label"></label>
+                            <input asp-for="CurrencyCode" class="form-control text-uppercase" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="DefaultTaxRate" class="form-label"></label>
+                            <input asp-for="DefaultTaxRate" type="number" min="0" max="100" step="0.01" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PlatformAccessStartDate" class="form-label"></label>
+                            <input asp-for="PlatformAccessStartDate" type="date" class="form-control" />
+                            <span asp-validation-for="PlatformAccessStartDate" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PlatformAccessEndDate" class="form-label"></label>
+                            <input asp-for="PlatformAccessEndDate" type="date" class="form-control" />
+                            <span asp-validation-for="PlatformAccessEndDate" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="AutoDisableGraceDays" class="form-label"></label>
+                            <input asp-for="AutoDisableGraceDays" type="number" min="0" max="30" class="form-control" />
+                            <span asp-validation-for="AutoDisableGraceDays" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="InvoiceFooterNote" class="form-label"></label>
+                            <input asp-for="InvoiceFooterNote" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ReceiptFooterNote" class="form-label"></label>
+                            <textarea asp-for="ReceiptFooterNote" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SupplierInvoiceFooterNote" class="form-label"></label>
+                            <textarea asp-for="SupplierInvoiceFooterNote" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4 d-flex justify-content-end">
+                        <button type="submit" class="btn btn-success px-4">
+                            <i class="fas fa-save me-2"></i>Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

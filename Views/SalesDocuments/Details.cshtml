@@ -1,0 +1,258 @@
+@model SalesDocumentDetailsViewModel
+@{
+    ViewData["Title"] = Model.Document.DocumentNumber;
+    var statuses = new[] { "Draft", "Issued", "Accepted", "Closed", "Cancelled" };
+}
+
+<div class="page-header">
+    <div>
+        <h1><i class="fas fa-file-invoice me-3"></i>@Model.Document.DocumentNumber</h1>
+        <p>@Model.Document.DocumentType for @(Model.Document.Customer?.Name ?? "walk-in / no customer")</p>
+    </div>
+    <div class="document-toolbar">
+        <a asp-action="Print" asp-route-id="@Model.Document.Id" class="btn btn-primary">
+            <i class="fas fa-print me-2"></i>Print
+        </a>
+        <a asp-action="DownloadPdf" asp-route-id="@Model.Document.Id" class="btn btn-success">
+            <i class="fas fa-file-pdf me-2"></i>PDF
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </a>
+    </div>
+</div>
+
+<div class="document-layout">
+    <div class="document-paper">
+        <div class="document-paper-header">
+            <div>
+                <h2 class="document-paper-title">@Model.Document.DocumentType</h2>
+                <div class="text-muted">@Model.Document.DocumentNumber</div>
+            </div>
+            <div class="text-md-end">
+                <span class="status-pill">@Model.Document.Status</span>
+                <span class="status-pill info ms-2">@Model.Document.PaymentStatus</span>
+            </div>
+        </div>
+
+        <div class="document-meta-grid">
+            <div>
+                <div class="document-block-label">Customer</div>
+                <div class="document-block-value">@(Model.Document.Customer?.Name ?? "Walk-in / none")</div>
+            </div>
+            <div>
+                <div class="document-block-label">Document Dates</div>
+                <div>Date: @Model.Document.DocumentDate.ToString("MMM dd, yyyy")</div>
+                <div>Due: @(Model.Document.DueDate?.ToString("MMM dd, yyyy") ?? "-")</div>
+            </div>
+        </div>
+
+        @if (Model.Document.Lines.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Product</th>
+                            <th class="money-cell">Qty</th>
+                            <th class="money-cell">Unit</th>
+                            <th class="money-cell">Tax</th>
+                            <th class="money-cell">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Model.Document.Lines)
+                        {
+                            <tr>
+                                <td><strong>@line.Description</strong></td>
+                                <td>@(line.Product?.Name ?? "-")</td>
+                                <td class="money-cell">@line.Quantity.ToString("N2")</td>
+                                <td class="money-cell">$@line.UnitPrice.ToString("N2")</td>
+                                <td class="money-cell">@line.TaxRate.ToString("N2")%</td>
+                                <td class="money-cell fw-semibold">$@line.LineTotal.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="state-card">
+                <i class="fas fa-list fa-3x mb-3"></i>
+                <p>No lines yet. Add products or service rows below.</p>
+            </div>
+        }
+    </div>
+
+    <aside class="document-side-panel">
+        <div class="erp-surface">
+            <div class="erp-surface-header">
+                <div>
+                    <h2 class="erp-surface-title"><i class="fas fa-circle-info me-2"></i>Summary</h2>
+                    <p class="erp-surface-subtitle">Payment and totals</p>
+                </div>
+            </div>
+            <div class="totals-panel">
+                <div class="totals-row"><span>Paid</span><strong>$@Model.Document.PaidAmount.ToString("N2")</strong></div>
+                <div class="totals-row"><span>Subtotal</span><strong>$@Model.Document.SubTotal.ToString("N2")</strong></div>
+                <div class="totals-row"><span>Tax</span><strong>$@Model.Document.TaxAmount.ToString("N2")</strong></div>
+                <div class="totals-row"><span>Discount</span><strong>$@Model.Document.DiscountAmount.ToString("N2")</strong></div>
+                <div class="totals-row total"><span>Total</span><strong>$@Model.Document.TotalAmount.ToString("N2")</strong></div>
+            </div>
+        </div>
+
+        <div class="erp-surface">
+            <div class="erp-surface-header">
+                <h2 class="erp-surface-title"><i class="fas fa-arrows-rotate me-2"></i>Workflow</h2>
+            </div>
+            <div class="form-section">
+                <form asp-action="UpdateStatus" method="post" class="d-flex gap-2 mb-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Document.Id" />
+                    <select name="status" class="form-select">
+                        @foreach (var status in statuses)
+                        {
+                            if (Model.Document.Status == status)
+                            {
+                                <option value="@status" selected>@status</option>
+                            }
+                            else
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        }
+                    </select>
+                    <button type="submit" class="btn btn-outline-primary">Save</button>
+                </form>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    @if (Model.Document.DocumentType == "Quote")
+                    {
+                        <form asp-action="Convert" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="SalesDocumentId" value="@Model.Document.Id" />
+                            <input type="hidden" name="TargetDocumentType" value="Order" />
+                            <button type="submit" class="btn btn-sm btn-outline-primary">To Order</button>
+                        </form>
+                    }
+                    @if (Model.Document.DocumentType is "Quote" or "Order")
+                    {
+                        <form asp-action="Convert" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="SalesDocumentId" value="@Model.Document.Id" />
+                            <input type="hidden" name="TargetDocumentType" value="Invoice" />
+                            <button type="submit" class="btn btn-sm btn-primary">To Invoice</button>
+                        </form>
+                    }
+                    @if (Model.Document.DocumentType == "Invoice")
+                    {
+                        <form asp-action="Convert" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="SalesDocumentId" value="@Model.Document.Id" />
+                            <input type="hidden" name="TargetDocumentType" value="CreditNote" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Credit Note</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+@if (Model.Document.DocumentType == "Invoice")
+{
+    <div class="inline-action-card mt-4">
+        <div class="erp-surface-header">
+            <div>
+                <h2 class="erp-surface-title"><i class="fas fa-money-bill me-2"></i>Record Payment</h2>
+                <p class="erp-surface-subtitle">Post a payment against this invoice.</p>
+            </div>
+        </div>
+        <div class="form-section">
+            <form asp-action="RecordPayment" method="post" class="row g-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="SalesDocumentId" value="@Model.Document.Id" />
+                <div class="col-md-3">
+                    <label class="form-label">Account</label>
+                    <select name="FinancialAccountId" class="form-select">
+                        <option value="">No bank account</option>
+                        @foreach (var account in Model.FinancialAccounts)
+                        {
+                            <option value="@account.Id">@account.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date</label>
+                    <input name="PaymentDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Amount</label>
+                    <input name="Amount" type="number" step="0.01" min="0.01" class="form-control" value="@Math.Max(Model.Document.TotalAmount - Model.Document.PaidAmount, 0).ToString("0.00")" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Method</label>
+                    <select name="PaymentMethod" class="form-select">
+                        <option value="Cash">Cash</option>
+                        <option value="Bank">Bank</option>
+                        <option value="Card">Card</option>
+                        <option value="ProviderReady">Provider Ready</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Reference</label>
+                    <input name="Reference" class="form-control" />
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100"><i class="fas fa-check"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<div class="inline-action-card mt-4">
+    <div class="erp-surface-header">
+        <div>
+            <h2 class="erp-surface-title"><i class="fas fa-plus me-2"></i>Add Line</h2>
+            <p class="erp-surface-subtitle">Add product or custom service lines.</p>
+        </div>
+    </div>
+    <div class="form-section">
+        <form asp-action="AddLine" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="SalesDocumentId" value="@Model.Document.Id" />
+            <div class="col-md-3">
+                <label class="form-label">Product</label>
+                <select name="ProductId" class="form-select">
+                    <option value="">Custom line</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Id">@product.Name - $@product.Price.ToString("N2")</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Description</label>
+                <input name="Description" class="form-control" placeholder="Auto from product" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Qty</label>
+                <input name="Quantity" type="number" step="0.001" min="0.001" class="form-control" value="1" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Unit Price</label>
+                <input name="UnitPrice" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">Tax %</label>
+                <input name="TaxRate" type="number" step="0.01" min="0" class="form-control" value="0" />
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus"></i></button>
+            </div>
+        </form>
+    </div>
+</div>

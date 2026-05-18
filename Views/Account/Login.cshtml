@@ -13,8 +13,8 @@
                     <p class="text-muted">Please sign in to continue</p>
                 </div>
 
-                <form asp-route-returnurl="@ViewData["ReturnUrl"]" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <form id="loginForm" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post" autocomplete="off">
+                    <div id="loginError" asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                     
                     <div class="mb-3">
                         <label asp-for="Email" class="form-label"></label>
@@ -36,7 +36,7 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Log in</button>
+                        <button id="loginSubmit" type="submit" class="btn btn-primary">Log in</button>
                     </div>
                 </form>
             </div>
@@ -49,4 +49,71 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (function() {
+            const hasLogoutMarker = !!(localStorage.getItem('pos_logged_out') || sessionStorage.getItem('pos_logged_out'));
+            if (!hasLogoutMarker) return;
+
+            if (!sessionStorage.getItem('pos_logout_history_guarded')) {
+                history.replaceState({ posLoginGuard: true }, '', '/Account/Login');
+                history.pushState({ posLoginGuard: true }, '', '/Account/Login');
+                sessionStorage.setItem('pos_logout_history_guarded', '1');
+            }
+
+            window.addEventListener('popstate', function() {
+                if (localStorage.getItem('pos_logged_out') || sessionStorage.getItem('pos_logged_out')) {
+                    history.pushState({ posLoginGuard: true }, '', '/Account/Login');
+                }
+            });
+        })();
+
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
+
+        document.getElementById('loginForm')?.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const form = event.currentTarget;
+            const button = document.getElementById('loginSubmit');
+            const errorBox = document.getElementById('loginError');
+
+            if (errorBox) errorBox.textContent = '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Signing in...';
+            }
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    localStorage.removeItem('pos_logged_out');
+                    sessionStorage.removeItem('pos_logged_out');
+                    sessionStorage.removeItem('pos_logout_history_guarded');
+                    window.location.replace(result.redirectUrl || '/');
+                    return;
+                }
+
+                if (errorBox) errorBox.textContent = result.message || 'Invalid login attempt.';
+            } catch {
+                if (errorBox) errorBox.textContent = 'Login could not be completed. Please try again.';
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Log in';
+                }
+            }
+        });
+    </script>
 }

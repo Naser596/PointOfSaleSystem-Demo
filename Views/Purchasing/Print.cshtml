@@ -1,0 +1,79 @@
+@model PurchaseOrderDetailsViewModel
+@{
+    Layout = null;
+    var company = ViewBag.Company as Company;
+    var order = Model.Order;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@order.OrderNumber</title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #111827; margin: 0; background: #f3f4f6; }
+        .sheet { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 18mm; box-sizing: border-box; }
+        .top { display: flex; justify-content: space-between; gap: 24px; border-bottom: 2px solid #111827; padding-bottom: 18px; }
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 28px; }
+        .muted { color: #6b7280; }
+        .meta { text-align: right; line-height: 1.7; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+        .box { border: 1px solid #d1d5db; padding: 14px; min-height: 88px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        th { background: #111827; color: #fff; text-align: left; padding: 10px; font-size: 13px; }
+        td { border-bottom: 1px solid #e5e7eb; padding: 10px; font-size: 13px; }
+        .right { text-align: right; }
+        .totals { width: 320px; margin-left: auto; margin-top: 20px; }
+        .totals div { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+        .grand { font-size: 18px; font-weight: 700; border-bottom: 2px solid #111827 !important; }
+        .actions { width: 210mm; margin: 16px auto; text-align: right; }
+        .actions button { background: #2563eb; color: #fff; border: 0; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+        @@media print { body { background: #fff; } .sheet { width: auto; min-height: auto; margin: 0; padding: 0; } .actions { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="actions"><button onclick="window.print()">Print</button></div>
+    <main class="sheet">
+        <section class="top">
+            <div>
+                <h1>@(company?.DisplayName ?? "Company")</h1>
+                <p class="muted">@company?.LegalName</p>
+                <p class="muted">@company?.Address @company?.City @company?.Country</p>
+                <p class="muted">@company?.Email @company?.Phone</p>
+            </div>
+            <div class="meta">
+                <h1>Purchase Order</h1>
+                <div><strong>No:</strong> @order.OrderNumber</div>
+                <div><strong>Date:</strong> @order.OrderDate.ToString("MMM dd, yyyy")</div>
+                <div><strong>Expected:</strong> @(order.ExpectedDate?.ToString("MMM dd, yyyy") ?? "-")</div>
+                <div><strong>Status:</strong> @order.Status</div>
+            </div>
+        </section>
+        <section class="grid">
+            <div class="box">
+                <h2>Supplier</h2>
+                <p>@order.SupplierName</p>
+                <p class="muted">@order.SupplierTaxNumber</p>
+            </div>
+            <div class="box">
+                <h2>Notes</h2>
+                <p class="muted">@(order.Notes ?? "-")</p>
+            </div>
+        </section>
+        <table>
+            <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Received</th><th class="right">Unit Cost</th><th class="right">Total</th></tr></thead>
+            <tbody>
+            @foreach (var line in order.Lines)
+            {
+                <tr><td>@line.Description</td><td class="right">@line.Quantity.ToString("N2")</td><td class="right">@line.ReceivedQuantity.ToString("N2")</td><td class="right">$@line.UnitCost.ToString("N2")</td><td class="right">$@line.LineTotal.ToString("N2")</td></tr>
+            }
+            </tbody>
+        </table>
+        <section class="totals">
+            <div><span>Subtotal</span><strong>$@order.SubTotal.ToString("N2")</strong></div>
+            <div><span>Tax</span><strong>$@order.TaxAmount.ToString("N2")</strong></div>
+            <div class="grand"><span>Total</span><strong>$@order.TotalAmount.ToString("N2")</strong></div>
+        </section>
+    </main>
+</body>
+</html>

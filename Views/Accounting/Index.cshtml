@@ -1,0 +1,258 @@
+@model AccountingDashboardViewModel
+@{
+    ViewData["Title"] = "Accounting";
+    var accountTypes = new[] { "Asset", "Liability", "Equity", "Revenue", "Expense" };
+}
+
+<div class="page-header d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1><i class="fas fa-scale-balanced me-3"></i>Accounting</h1>
+        <p>Chart of accounts, fiscal periods, and journal foundation.</p>
+    </div>
+    <a href="/Erp" class="btn btn-outline-secondary">
+        <i class="fas fa-sitemap me-2"></i>ERP Core
+    </a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-list-ol me-2"></i>Chart of Accounts
+            </div>
+            <div class="card-body">
+                <form asp-action="CreateAccount" method="post" class="row g-2 mb-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-2">
+                        <input name="Code" class="form-control" placeholder="Code" required />
+                    </div>
+                    <div class="col-md-4">
+                        <input name="Name" class="form-control" placeholder="Account name" required />
+                    </div>
+                    <div class="col-md-3">
+                        <select name="AccountType" class="form-select">
+                            @foreach (var type in accountTypes)
+                            {
+                                <option value="@type">@type</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-plus me-2"></i>Add
+                        </button>
+                    </div>
+                </form>
+
+                @if (Model.Accounts.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var account in Model.Accounts)
+                                {
+                                    <tr>
+                                        <td><strong>@account.Code</strong></td>
+                                        <td>@account.Name</td>
+                                        <td><span class="badge bg-primary">@account.AccountType</span></td>
+                                        <td><span class="badge @(account.IsActive ? "bg-success" : "bg-secondary")">@(account.IsActive ? "Active" : "Inactive")</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-list-ol fa-3x mb-3"></i>
+                        <p>No accounts yet. Start by creating the chart of accounts.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-calendar-days me-2"></i>Fiscal Periods
+            </div>
+            <div class="card-body">
+                <form asp-action="CreateFiscalPeriod" method="post" class="row g-2 mb-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-12">
+                        <input name="Name" class="form-control" placeholder="2026" required />
+                    </div>
+                    <div class="col-md-6">
+                        <input name="StartDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-01-01")" />
+                    </div>
+                    <div class="col-md-6">
+                        <input name="EndDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-12-31")" />
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-plus me-2"></i>Add Fiscal Period
+                        </button>
+                    </div>
+                </form>
+
+                @if (Model.FiscalPeriods.Any())
+                {
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Period</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var period in Model.FiscalPeriods)
+                            {
+                                <tr>
+                                    <td><strong>@period.Name</strong></td>
+                                    <td>@period.StartDate.ToString("MMM yyyy") - @period.EndDate.ToString("MMM yyyy")</td>
+                                    <td><span class="badge bg-secondary">@period.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-days fa-3x mb-3"></i>
+                        <p>No fiscal periods yet.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-scale-balanced stat-icon"></i><div class="stat-value">$@Model.TotalDebits.ToString("N0")</div><div class="stat-label">Trial Debits</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card primary"><i class="fas fa-scale-balanced stat-icon"></i><div class="stat-value">$@Model.TotalCredits.ToString("N0")</div><div class="stat-label">Trial Credits</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card @(Model.NetIncome >= 0 ? "success" : "danger")"><i class="fas fa-chart-line stat-icon"></i><div class="stat-value">$@Model.NetIncome.ToString("N0")</div><div class="stat-label">Net Income</div></div></div>
+    <div class="col-md-6 col-xl-3"><div class="stat-card info"><i class="fas fa-building-columns stat-icon"></i><div class="stat-value">$@Model.AssetsTotal.ToString("N0")</div><div class="stat-label">Assets</div></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-list-check me-2"></i>Trial Balance</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>Account</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead>
+                        <tbody>
+                        @foreach (var row in Model.TrialBalance)
+                        {
+                            <tr><td><strong>@row.AccountCode</strong><div class="small text-muted">@row.AccountName</div></td><td class="text-end">$@row.Debit.ToString("N2")</td><td class="text-end">$@row.Credit.ToString("N2")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-chart-simple me-2"></i>Profit & Loss</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Account</th><th>Type</th><th class="text-end">Balance</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in Model.ProfitAndLoss)
+                    {
+                        <tr><td>@row.AccountName</td><td>@row.AccountType</td><td class="text-end">$@row.Balance.ToString("N2")</td></tr>
+                    }
+                    <tr class="table-light"><td colspan="2"><strong>Net Income</strong></td><td class="text-end fw-bold">$@Model.NetIncome.ToString("N2")</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-header"><i class="fas fa-building-columns me-2"></i>Balance Sheet</div>
+            <div class="card-body p-0">
+                <table class="table mb-0">
+                    <thead><tr><th>Account</th><th>Type</th><th class="text-end">Balance</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in Model.BalanceSheet)
+                    {
+                        <tr><td>@row.AccountName</td><td>@row.AccountType</td><td class="text-end">$@row.Balance.ToString("N2")</td></tr>
+                    }
+                    <tr class="table-light"><td>Assets</td><td></td><td class="text-end fw-bold">$@Model.AssetsTotal.ToString("N2")</td></tr>
+                    <tr class="table-light"><td>Liabilities + Equity</td><td></td><td class="text-end fw-bold">$@((Model.LiabilitiesTotal + Model.EquityTotal + Model.NetIncome).ToString("N2"))</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-book me-2"></i>Recent Journal Entries
+    </div>
+    <div class="card-body p-0">
+        @if (Model.RecentJournalEntries.Any())
+        {
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Entry</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Source</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.RecentJournalEntries)
+                    {
+                        <tr>
+                            <td><strong>@entry.EntryNumber</strong></td>
+                            <td>@entry.EntryDate.ToString("MMM dd, yyyy")</td>
+                            <td>@entry.Description</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(entry.SourceType))
+                                {
+                                    <span class="badge bg-info">@entry.SourceType</span>
+                                    <div class="small text-muted">#@entry.SourceId</div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Manual</span>
+                                }
+                            </td>
+                            <td class="text-end">$@entry.TotalDebit.ToString("N2")</td>
+                            <td class="text-end">$@entry.TotalCredit.ToString("N2")</td>
+                            <td><span class="badge bg-secondary">@entry.Status</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-book fa-3x mb-3"></i>
+                <p>No journal entries yet. Journal posting comes next after account setup.</p>
+            </div>
+        }
+    </div>
+</div>

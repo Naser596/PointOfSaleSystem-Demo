@@ -7,29 +7,34 @@ namespace WebApplication3.Services
     public class InventoryService : IInventoryService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ICurrentCompanyService _currentCompany;
 
-        public InventoryService(ApplicationDbContext context)
+        public InventoryService(ApplicationDbContext context, ICurrentCompanyService currentCompany)
         {
             _context = context;
+            _currentCompany = currentCompany;
         }
 
         public async Task<List<Product>> GetLowStockProductsAsync()
         {
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
             return await _context.Products
                 .Include(p => p.Category)
-                .Where(p => p.IsActive && p.Stock <= p.MinStock)
+                .Where(p => p.CompanyId == companyId && p.IsActive && p.Stock <= p.MinStock)
                 .OrderBy(p => p.Stock)
                 .ToListAsync();
         }
 
         public async Task<int> GetLowStockCountAsync()
         {
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
             return await _context.Products
-                .CountAsync(p => p.IsActive && p.Stock <= p.MinStock);
+                .CountAsync(p => p.CompanyId == companyId && p.IsActive && p.Stock <= p.MinStock);
         }
 
         public async Task<StockMovement> RecordStockMovementAsync(StockMovement movement)
         {
+            movement.CompanyId = await _currentCompany.GetRequiredCompanyIdAsync();
             movement.CreatedDate = DateTime.Now;
             _context.StockMovements.Add(movement);
             await _context.SaveChangesAsync();
@@ -38,8 +43,9 @@ namespace WebApplication3.Services
 
         public async Task<List<StockMovement>> GetProductStockHistoryAsync(int productId, int take = 50)
         {
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
             return await _context.StockMovements
-                .Where(m => m.ProductId == productId)
+                .Where(m => m.CompanyId == companyId && m.ProductId == productId)
                 .OrderByDescending(m => m.CreatedDate)
                 .Take(take)
                 .ToListAsync();
@@ -47,7 +53,8 @@ namespace WebApplication3.Services
 
         public async Task<bool> RestockProductAsync(int productId, int quantity, string? notes, string userId)
         {
-            var product = await _context.Products.FindAsync(productId);
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && p.CompanyId == companyId);
             if (product == null) return false;
 
             var previousStock = product.Stock;
@@ -56,6 +63,7 @@ namespace WebApplication3.Services
 
             var movement = new StockMovement
             {
+                CompanyId = companyId,
                 ProductId = productId,
                 MovementType = "Restock",
                 Quantity = quantity,
@@ -73,7 +81,8 @@ namespace WebApplication3.Services
 
         public async Task<bool> AdjustStockAsync(int productId, int newStock, string reason, string userId)
         {
-            var product = await _context.Products.FindAsync(productId);
+            var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && p.CompanyId == companyId);
             if (product == null) return false;
 
             var previousStock = product.Stock;
@@ -83,6 +92,7 @@ namespace WebApplication3.Services
 
             var movement = new StockMovement
             {
+                CompanyId = companyId,
                 ProductId = productId,
                 MovementType = "Adjustment",
                 Quantity = quantity,

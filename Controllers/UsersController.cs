@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using WebApplication3.Models;
 using WebApplication3.Services;
 
 namespace WebApplication3.Controllers
@@ -8,16 +10,20 @@ namespace WebApplication3.Controllers
     public class UsersController : Controller
     {
         private readonly IUserService _userService;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IAuditLogService _auditLog;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, UserManager<ApplicationUser> userManager, IAuditLogService auditLog)
         {
             _userService = userService;
+            _userManager = userManager;
+            _auditLog = auditLog;
         }
 
         // GET: Users
         public async Task<IActionResult> Index()
         {
-            var users = await _userService.GetAllUsersAsync();
+            var users = await _userService.GetAllUsersAsync(await GetCurrentCompanyIdAsync());
             ViewBag.Roles = await _userService.GetAllRolesAsync();
             return View(users);
         }
@@ -41,9 +47,10 @@ namespace WebApplication3.Controllers
                 return View(dto);
             }
 
-            var (success, errors) = await _userService.CreateUserAsync(dto);
+            var (success, errors) = await _userService.CreateUserAsync(dto, await GetCurrentCompanyIdAsync());
             if (success)
             {
+                await _auditLog.LogAsync("Create", nameof(ApplicationUser), dto.Email, $"Created user {dto.Email} with role {dto.Role}", await GetCurrentCompanyIdAsync());
                 TempData["Success"] = "User created successfully!";
                 return RedirectToAction(nameof(Index));
             }
@@ -59,7 +66,7 @@ namespace WebApplication3.Controllers
         // GET: Users/Edit/5
         public async Task<IActionResult> Edit(string id)
         {
-            var user = await _userService.GetUserByIdAsync(id);
+            var user = await _userService.GetUserByIdAsync(id, await GetCurrentCompanyIdAsync());
             if (user == null)
             {
                 return NotFound();
@@ -86,9 +93,10 @@ namespace WebApplication3.Controllers
                 return NotFound();
             }
 
-            var (success, errors) = await _userService.UpdateUserAsync(dto);
+            var (success, errors) = await _userService.UpdateUserAsync(dto, await GetCurrentCompanyIdAsync());
             if (success)
             {
+                await _auditLog.LogAsync("Update", nameof(ApplicationUser), dto.Id, $"Updated user {dto.Email} with role {dto.Role}", await GetCurrentCompanyIdAsync());
                 TempData["Success"] = "User updated successfully!";
                 return RedirectToAction(nameof(Index));
             }
@@ -106,9 +114,12 @@ namespace WebApplication3.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(string id)
         {
-            var (success, errors) = await _userService.DeleteUserAsync(id);
+            var companyId = await GetCurrentCompanyIdAsync();
+            var user = await _userService.GetUserByIdAsync(id, companyId);
+            var (success, errors) = await _userService.DeleteUserAsync(id, companyId);
             if (success)
             {
+                await _auditLog.LogAsync("Delete", nameof(ApplicationUser), id, $"Deleted user {user?.Email ?? id}", companyId);
                 TempData["Success"] = "User deleted successfully!";
             }
             else
@@ -129,9 +140,12 @@ namespace WebApplication3.Controllers
                 return RedirectToAction(nameof(Edit), new { id });
             }
 
-            var (success, errors) = await _userService.ResetPasswordAsync(id, newPassword);
+            var companyId = await GetCurrentCompanyIdAsync();
+            var user = await _userService.GetUserByIdAsync(id, companyId);
+            var (success, errors) = await _userService.ResetPasswordAsync(id, newPassword, companyId);
             if (success)
             {
+                await _auditLog.LogAsync("ResetPassword", nameof(ApplicationUser), id, $"Reset password for user {user?.Email ?? id}", companyId);
                 TempData["Success"] = "Password reset successfully!";
             }
             else
@@ -139,6 +153,12 @@ namespace WebApplication3.Controllers
                 TempData["Error"] = string.Join(", ", errors);
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        private async Task<int?> GetCurrentCompanyIdAsync()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            return user?.CompanyId;
         }
     }
 }

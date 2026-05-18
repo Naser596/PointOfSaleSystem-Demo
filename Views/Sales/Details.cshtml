@@ -22,6 +22,7 @@
                             <tr>
                                 <th>Product</th>
                                 <th class="text-center">Quantity</th>
+                                <th class="text-center">Returned</th>
                                 <th class="text-end">Unit Price</th>
                                 <th class="text-end">Total</th>
                             </tr>
@@ -35,10 +36,11 @@
                                             <div class="bg-light rounded-circle p-2 me-3">
                                                 <i class="fas fa-cube text-primary"></i>
                                             </div>
-                                            <strong>@item.Product?.Name</strong>
+                                            <strong>@(!string.IsNullOrWhiteSpace(item.ProductNameSnapshot) ? item.ProductNameSnapshot : item.Product?.Name ?? "Product")</strong>
                                         </div>
                                     </td>
                                     <td class="text-center">@item.Quantity</td>
+                                    <td class="text-center">@item.ReturnedQuantity</td>
                                     <td class="text-end">$@item.UnitPrice.ToString("N2")</td>
                                     <td class="text-end fw-bold">$@item.TotalPrice.ToString("N2")</td>
                                 </tr>
@@ -46,9 +48,16 @@
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <td colspan="3" class="text-end"><strong>Grand Total:</strong></td>
+                                <td colspan="4" class="text-end"><strong>Grand Total:</strong></td>
                                 <td class="text-end"><span class="h4 text-success mb-0">$@Model.TotalAmount.ToString("N2")</span></td>
                             </tr>
+                            @if (Model.RefundedAmount > 0)
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-end"><strong>Refunded:</strong></td>
+                                    <td class="text-end"><span class="h5 text-danger mb-0">$@Model.RefundedAmount.ToString("N2")</span></td>
+                                </tr>
+                            }
                         </tfoot>
                     </table>
                 }
@@ -78,13 +87,34 @@
                 </div>
                 <div class="mb-3">
                     <div class="text-muted small">STATUS</div>
-                    <div><span class="badge bg-success">@Model.Status</span></div>
+                    <div>
+                        <span class="badge @(Model.Status == "Returned" ? "bg-danger" : Model.Status == "Partially Returned" ? "bg-warning text-dark" : "bg-success")">
+                            @Model.Status
+                        </span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted small">PAYMENT</div>
+                    <div>@Model.PaymentMethod</div>
                 </div>
                 <div class="mb-3">
                     <div class="text-muted small">TOTAL AMOUNT</div>
                     <div class="h3 text-success">$@Model.TotalAmount.ToString("N2")</div>
                 </div>
+                @if (Model.RefundedAmount > 0)
+                {
+                    <div class="mb-3">
+                        <div class="text-muted small">REFUNDED</div>
+                        <div class="h4 text-danger">$@Model.RefundedAmount.ToString("N2")</div>
+                    </div>
+                }
                 <hr />
+                @if (User.IsInRole("Admin") && Model.Status != "Returned")
+                {
+                    <a href="/Sales/Return/@Model.Id" class="btn btn-outline-danger w-100 mb-2">
+                        <i class="fas fa-undo me-2"></i>Process Return
+                    </a>
+                }
                 <a href="/Sales" class="btn btn-outline-secondary w-100">
                     <i class="fas fa-arrow-left me-2"></i>Back to Sales
                 </a>

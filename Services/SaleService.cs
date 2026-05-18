@@ -8,21 +8,25 @@ namespace WebApplication3.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<SaleService> _logger;
+        private readonly ICurrentCompanyService _currentCompany;
 
-        public SaleService(ApplicationDbContext context, ILogger<SaleService> logger)
+        public SaleService(ApplicationDbContext context, ILogger<SaleService> logger, ICurrentCompanyService currentCompany)
         {
             _context = context;
             _logger = logger;
+            _currentCompany = currentCompany;
         }
 
         public async Task<List<Sale>> GetAllSalesAsync()
         {
             try
             {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 return await _context.Sales
                     .Include(s => s.SaleItems)
                     .ThenInclude(si => si.Product)
                     .IgnoreQueryFilters() // Allow viewing sales of deleted products
+                    .Where(s => s.CompanyId == companyId)
                     .OrderByDescending(s => s.SaleDate)
                     .ToListAsync();
             }
@@ -34,15 +38,36 @@ namespace WebApplication3.Services
             }
         }
 
-        public async Task<Sale?> GetSaleByIdAsync(int id)
+        public async Task<List<Sale>> GetSalesByCashierAsync(string cashierName)
         {
             try
             {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 return await _context.Sales
                     .Include(s => s.SaleItems)
                     .ThenInclude(si => si.Product)
                     .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(s => s.Id == id);
+                    .Where(s => s.CompanyId == companyId && s.CashierName == cashierName)
+                    .OrderByDescending(s => s.SaleDate)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting sales by cashier: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<Sale?> GetSaleByIdAsync(int id)
+        {
+            try
+            {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                return await _context.Sales
+                    .Include(s => s.SaleItems)
+                    .ThenInclude(si => si.Product)
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(s => s.Id == id && s.CompanyId == companyId);
 
             }
             catch (Exception ex)
@@ -56,6 +81,7 @@ namespace WebApplication3.Services
         {
             try
             {
+                sale.CompanyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 sale.SaleDate = DateTime.Now;
                 sale.SaleNumber = $"SALE-{DateTime.Now:yyyyMMddHHmmss}";
                 _context.Sales.Add(sale);
@@ -73,9 +99,17 @@ namespace WebApplication3.Services
         {
             try
             {
-                _context.Sales.Update(sale);
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                var existing = await _context.Sales.FirstOrDefaultAsync(s => s.Id == sale.Id && s.CompanyId == companyId);
+                if (existing == null)
+                {
+                    throw new InvalidOperationException("Sale not found for this company.");
+                }
+
+                existing.Status = sale.Status;
+                existing.PaymentMethod = sale.PaymentMethod;
                 await _context.SaveChangesAsync();
-                return sale;
+                return existing;
             }
             catch (Exception ex)
             {
@@ -88,7 +122,8 @@ namespace WebApplication3.Services
         {
             try
             {
-                var sale = await _context.Sales.FirstOrDefaultAsync(s => s.Id == id);
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                var sale = await _context.Sales.FirstOrDefaultAsync(s => s.Id == id && s.CompanyId == companyId);
                 if (sale == null)
                     return false;
 
@@ -107,7 +142,10 @@ namespace WebApplication3.Services
         {
             try
             {
-                return await _context.Sales.SumAsync(s => s.TotalAmount);
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
+                return await _context.Sales
+                    .Where(s => s.CompanyId == companyId)
+                    .SumAsync(s => s.TotalAmount);
             }
             catch (Exception ex)
             {
@@ -120,10 +158,12 @@ namespace WebApplication3.Services
         {
             try
             {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 var query = _context.Sales
                     .Include(s => s.SaleItems)
                     .ThenInclude(si => si.Product)
                     .IgnoreQueryFilters()
+                    .Where(s => s.CompanyId == companyId)
                     .AsQueryable();
 
                 // Apply filters
@@ -179,8 +219,9 @@ namespace WebApplication3.Services
         {
             try
             {
+                var companyId = await _currentCompany.GetRequiredCompanyIdAsync();
                 return await _context.Sales
-                    .Where(s => !string.IsNullOrEmpty(s.CashierName))
+                    .Where(s => s.CompanyId == companyId && !string.IsNullOrEmpty(s.CashierName))
                     .Select(s => s.CashierName!)
                     .Distinct()
                     .OrderBy(n => n)

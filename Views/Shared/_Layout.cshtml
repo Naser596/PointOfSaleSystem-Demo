@@ -1,9 +1,40 @@
+@inject WebApplication3.Services.ICompanySettingsService CompanySettingsService
+@inject WebApplication3.Data.ApplicationDbContext LayoutDbContext
+@using Microsoft.EntityFrameworkCore
+@{
+    var layoutCompany = await CompanySettingsService.GetSettingsAsync();
+    Company? currentCompany = null;
+    if (User.Identity?.IsAuthenticated == true && !User.IsInRole("SuperAdmin"))
+    {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            currentCompany = await LayoutDbContext.Users
+                .Where(u => u.Id == currentUserId)
+                .Select(u => u.Company)
+                .FirstOrDefaultAsync();
+        }
+    }
+    var appTitle = currentCompany?.DisplayName ?? (string.IsNullOrWhiteSpace(layoutCompany.DisplayName) ? "MiniPOS" : layoutCompany.DisplayName);
+    var appLogo = currentCompany?.LogoPath ?? layoutCompany.LogoPath;
+    var brandColor = currentCompany?.PrimaryColor ?? layoutCompany.PrimaryColor;
+    var currencyCode = currentCompany?.CurrencyCode ?? layoutCompany.CurrencyCode;
+    var pageAuthSession = User.Identity?.IsAuthenticated == true
+        ? Context.Request.Cookies["pos_session"]
+        : null;
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isSuperAdmin = User.IsInRole("SuperAdmin");
+    var isAdmin = User.IsInRole("Admin");
+    var canUseErp = User.IsInRole("Admin") || User.IsInRole("Manager") || User.IsInRole("Accountant") || User.IsInRole("Warehouse") || User.IsInRole("HR");
+    var routeController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    Func<string, string> activeNav = controller => string.Equals(routeController, controller, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+}
 <!doctype html>
 <html lang="en" id="htmlRoot" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MiniPOS - Point of Sale</title>
+    <title>@appTitle - Point of Sale</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +48,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     
     <!-- App Styles -->
-    <link href="~/css/site.css" rel="stylesheet" />
+    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
+    <style>
+        :root {
+            --tenant-primary: @brandColor;
+            --tenant-primary-soft: color-mix(in srgb, @brandColor 14%, transparent);
+        }
+    </style>
     
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -25,52 +62,129 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
-<body>
+<body class="@(isAuthenticated ? "app-shell" : "auth-shell")">
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top border-bottom">
         <div class="container">
-            <a class="navbar-brand text-primary" href="/">
-                <i class="fas fa-cash-register me-2"></i>MiniPOS
+            <a class="navbar-brand text-primary d-flex align-items-center gap-2" href="/">
+                @if (!string.IsNullOrEmpty(appLogo))
+                {
+                    <img src="@appLogo" alt="@appTitle logo" style="height: 32px; max-width: 120px; object-fit: contain;" />
+                }
+                else
+                {
+                    <i class="fas fa-cash-register"></i>
+                }
+                <span>@appTitle</span>
+                @if (User.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(currencyCode))
+                {
+                    <span class="tenant-currency">@currencyCode</span>
+                }
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div id="nav" class="collapse navbar-collapse">
                 <ul class="navbar-nav ms-auto align-items-center">
-                    @if (User.Identity?.IsAuthenticated == true)
+                    @if (isAuthenticated)
                     {
-                        <li class="nav-item">
-                            <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/POS"><i class="fas fa-shopping-cart"></i> POS Terminal</a>
-                        </li>
-                        @if (User.IsInRole("Admin"))
+                        @if (isSuperAdmin)
                         {
                             <li class="nav-item">
-                                <a class="nav-link" href="/Products"><i class="fas fa-box"></i> Products</a>
+                                <a class="nav-link" href="/SuperAdmin"><i class="fas fa-shield-alt"></i> Platform</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="/Categories"><i class="fas fa-tags"></i> Categories</a>
+                                <a class="nav-link" href="/SuperAdmin/CreateCompany"><i class="fas fa-building"></i> New Company</a>
                             </li>
                         }
-                        <li class="nav-item">
-                            <a class="nav-link" href="/Sales"><i class="fas fa-receipt"></i> Sales</a>
-                        </li>
-                        @if (User.IsInRole("Admin"))
+                        else
                         {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-cog"></i> Admin
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="/Users"><i class="fas fa-users me-2"></i>User Management</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="/Categories"><i class="fas fa-tags me-2"></i>Categories</a></li>
-                                </ul>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/"><i class="fas fa-home"></i> Dashboard</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/POS"><i class="fas fa-shopping-cart"></i> POS Terminal</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Customers"><i class="fas fa-address-book"></i> Customers</a>
+                            </li>
+                            @if (isAdmin)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/Products"><i class="fas fa-box"></i> Products</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/Categories"><i class="fas fa-tags"></i> Categories</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/Discounts"><i class="fas fa-percent"></i> Discounts</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/Finance"><i class="fas fa-chart-pie"></i> Finance</a>
+                                </li>
+                            }
+                            @if (canUseErp)
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-sitemap"></i> ERP
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><h6 class="dropdown-header">Finance</h6></li>
+                                        <li><a class="dropdown-item" href="/Reports"><i class="fas fa-chart-line me-2"></i>Management Reports</a></li>
+                                        <li><a class="dropdown-item" href="/Accounting"><i class="fas fa-scale-balanced me-2"></i>Accounting</a></li>
+                                        <li><a class="dropdown-item" href="/FinancialAccounts"><i class="fas fa-building-columns me-2"></i>Bank & Cash</a></li>
+                                        <li><a class="dropdown-item" href="/Obligations"><i class="fas fa-hand-holding-dollar me-2"></i>Obligations</a></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><h6 class="dropdown-header">Operations</h6></li>
+                                        <li><a class="dropdown-item" href="/Customers"><i class="fas fa-address-book me-2"></i>Customers</a></li>
+                                        <li><a class="dropdown-item" href="/SalesDocuments"><i class="fas fa-file-invoice me-2"></i>Sales Documents</a></li>
+                                        <li><a class="dropdown-item" href="/Purchasing"><i class="fas fa-truck-ramp-box me-2"></i>Purchasing</a></li>
+                                        <li><a class="dropdown-item" href="/SupplierInvoices"><i class="fas fa-file-invoice-dollar me-2"></i>Supplier Invoices</a></li>
+                                        <li><a class="dropdown-item" href="/Warehouses"><i class="fas fa-warehouse me-2"></i>Warehouses</a></li>
+                                        <li><a class="dropdown-item" href="/Warehouses/StockLedger"><i class="fas fa-clipboard-list me-2"></i>Stock Ledger</a></li>
+                                        <li><a class="dropdown-item" href="/Warehouses/StockCounts"><i class="fas fa-clipboard-check me-2"></i>Stock Counts</a></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><h6 class="dropdown-header">Control</h6></li>
+                                        <li><a class="dropdown-item" href="/Hr"><i class="fas fa-users-gear me-2"></i>HR & Payroll</a></li>
+                                        <li><a class="dropdown-item" href="/Approvals"><i class="fas fa-user-check me-2"></i>Approvals</a></li>
+                                        <li><a class="dropdown-item" href="/OfflineSync"><i class="fas fa-cloud-upload-alt me-2"></i>Offline Sync</a></li>
+                                        <li><a class="dropdown-item" href="/Notifications"><i class="fas fa-bell me-2"></i>Notifications</a></li>
+                                    </ul>
+                                </li>
+                            }
+                            @if (isAdmin)
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-clipboard-list"></i> Sale Options
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="/Sales"><i class="fas fa-history me-2"></i>Sales History</a></li>
+                                        <li><a class="dropdown-item" href="/Sales/ExportDailyReport"><i class="fas fa-file-excel me-2"></i>Daily Report</a></li>
+                                    </ul>
+                                </li>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-cog"></i> Admin
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="/Users"><i class="fas fa-users me-2"></i>User Management</a></li>
+                                        <li><a class="dropdown-item" href="/Erp"><i class="fas fa-sitemap me-2"></i>ERP Core</a></li>
+                                        <li><a class="dropdown-item" href="/Accounting"><i class="fas fa-scale-balanced me-2"></i>Accounting</a></li>
+                                        <li><a class="dropdown-item" href="/Reports"><i class="fas fa-chart-line me-2"></i>Reports</a></li>
+                                        <li><a class="dropdown-item" href="/Hr"><i class="fas fa-users-gear me-2"></i>HR & Payroll</a></li>
+                                        <li><a class="dropdown-item" href="/Operations"><i class="fas fa-store me-2"></i>Operations</a></li>
+                                        <li><a class="dropdown-item" href="/Obligations"><i class="fas fa-hand-holding-dollar me-2"></i>Company Obligations</a></li>
+                                        <li><a class="dropdown-item" href="/SupplierInvoices"><i class="fas fa-file-invoice-dollar me-2"></i>Supplier Invoices</a></li>
+                                        <li><a class="dropdown-item" href="/OfflineSync"><i class="fas fa-cloud-upload-alt me-2"></i>Offline Sync</a></li>
+                                        <li><a class="dropdown-item" href="/Notifications"><i class="fas fa-bell me-2"></i>Notifications</a></li>
+                                        <li><a class="dropdown-item" href="/AuditLogs"><i class="fas fa-clipboard-check me-2"></i>Audit Logs</a></li>
+                                    </ul>
+                                </li>
+                            }
                         }
-                        <li class="nav-item ms-lg-3">
-                             <form method="post" action="/Account/Logout" class="d-inline">
+                        <li class="nav-item ms-lg-3 app-account-action">
+                             <form id="logoutForm" method="post" action="/Account/Logout" class="d-inline">
                                   @Html.AntiForgeryToken()
                                  <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
                                      <i class="fas fa-sign-out-alt me-1"></i>Logout
@@ -84,7 +198,7 @@
                             <a class="nav-link" href="/Account/Login"><i class="fas fa-sign-in-alt"></i> Login</a>
                         </li>
                     }
-                    <li class="nav-item ms-2">
+                    <li class="nav-item ms-2 app-theme-action">
                          <button class="btn btn-link nav-link" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark Mode">
                              <i class="fas fa-moon"></i>
                          </button>
@@ -104,7 +218,136 @@
                 if(btn) btn.innerHTML = `<i class="fas ${icon}"></i>`;
             });
         })();
+
+        (function() {
+            const pageAuthSession = '@pageAuthSession';
+
+            function readCookie(name) {
+                return document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith(name + '='))
+                    ?.split('=')[1] || '';
+            }
+
+            function redirectToLogin() {
+                window.location.replace('/Account/Login');
+            }
+
+            function replaceStaleSessionPage() {
+                if (!pageAuthSession) return;
+
+                const activeSession = readCookie('pos_session');
+                if (!activeSession || activeSession !== pageAuthSession) {
+                    redirectToLogin();
+                    return true;
+                }
+
+                if (localStorage.getItem('pos_logged_out') === pageAuthSession ||
+                    sessionStorage.getItem('pos_logged_out') === pageAuthSession) {
+                    redirectToLogin();
+                    return true;
+                }
+
+                return false;
+            }
+
+            async function validateServerSession() {
+                if (!pageAuthSession || replaceStaleSessionPage()) return;
+
+                try {
+                    const response = await fetch('/Account/SessionStatus', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        redirectToLogin();
+                        return;
+                    }
+
+                    const result = await response.json();
+                    if (!result.authenticated || result.session !== pageAuthSession) {
+                        redirectToLogin();
+                    }
+                } catch {
+                    replaceStaleSessionPage();
+                }
+            }
+
+            window.addEventListener('pageshow', validateServerSession);
+            window.addEventListener('focus', validateServerSession);
+            window.addEventListener('popstate', validateServerSession);
+            window.addEventListener('storage', function(event) {
+                if (event.key === 'pos_logged_out' && event.newValue === pageAuthSession) {
+                    redirectToLogin();
+                }
+            });
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    validateServerSession();
+                }
+            });
+
+            document.getElementById('logoutForm')?.addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                const form = event.currentTarget;
+                const token = form.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                const logoutMarker = pageAuthSession || Date.now().toString();
+
+                localStorage.setItem('pos_logged_out', logoutMarker);
+                sessionStorage.setItem('pos_logged_out', logoutMarker);
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: new URLSearchParams({ __RequestVerificationToken: token }),
+                        credentials: 'same-origin',
+                        cache: 'no-store'
+                    });
+
+                    const result = await response.json();
+                    window.location.replace(result.redirectUrl || '/Account/Login');
+                } catch {
+                    window.location.replace('/Account/Login');
+                }
+            });
+        })();
     </script>
+
+    @if (isAuthenticated)
+    {
+        <div id="onlineStatusBadge" class="online-status-badge">
+            <i class="fas fa-wifi me-1"></i><span>Online</span>
+        </div>
+        <script>
+            (function() {
+                function updateOnlineStatus() {
+                    const badge = document.getElementById('onlineStatusBadge');
+                    if (!badge) return;
+
+                    const online = navigator.onLine;
+                    badge.classList.toggle('is-offline', !online);
+                    badge.innerHTML = online
+                        ? '<i class="fas fa-wifi me-1"></i><span>Online</span>'
+                        : '<i class="fas fa-plug-circle-xmark me-1"></i><span>Offline</span>';
+                }
+
+                window.addEventListener('online', updateOnlineStatus);
+                window.addEventListener('offline', updateOnlineStatus);
+                document.addEventListener('DOMContentLoaded', updateOnlineStatus);
+                updateOnlineStatus();
+            })();
+        </script>
+    }
 
     <!-- Global Loading Spinner Overlay -->
     <div id="loadingOverlay">
@@ -112,9 +355,161 @@
         <div class="loading-text">Processing...</div>
     </div>
 
-    <div class="container py-4" style="margin-top: 70px;">
-        @RenderBody()
-    </div>
+    @if (isAuthenticated)
+    {
+        <div class="app-layout">
+            <aside class="app-sidebar" aria-label="ERP navigation">
+                <div class="app-sidebar-inner">
+                    @if (isSuperAdmin)
+                    {
+                        <div class="app-sidebar-section">
+                            <div class="app-sidebar-label">Platform</div>
+                            <a class="app-nav-link @activeNav("SuperAdmin")" href="/SuperAdmin">
+                                <i class="fas fa-shield-alt"></i><span>Platform Dashboard</span>
+                            </a>
+                            <a class="app-nav-link" href="/SuperAdmin/CreateCompany">
+                                <i class="fas fa-building"></i><span>New Company</span>
+                            </a>
+                            <a class="app-nav-link @activeNav("Notifications")" href="/Notifications">
+                                <i class="fas fa-bell"></i><span>Notifications</span>
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="app-sidebar-section">
+                            <div class="app-sidebar-label">Workspace</div>
+                            <a class="app-nav-link @activeNav("Home")" href="/">
+                                <i class="fas fa-chart-line"></i><span>Dashboard</span>
+                            </a>
+                            <a class="app-nav-link @activeNav("POS")" href="/POS">
+                                <i class="fas fa-cash-register"></i><span>POS Terminal</span>
+                            </a>
+                        </div>
+
+                        @if (isAdmin)
+                        {
+                            <div class="app-sidebar-section">
+                                <div class="app-sidebar-label">Sales</div>
+                                <a class="app-nav-link @activeNav("Sales")" href="/Sales">
+                                    <i class="fas fa-receipt"></i><span>Sales History</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("SalesDocuments")" href="/SalesDocuments">
+                                    <i class="fas fa-file-invoice"></i><span>Sales Documents</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Customers")" href="/Customers">
+                                    <i class="fas fa-address-book"></i><span>Customers</span>
+                                </a>
+                                <a class="app-nav-link" href="/SalesDocuments/Receivables">
+                                    <i class="fas fa-hand-holding-dollar"></i><span>Receivables</span>
+                                </a>
+                                <a class="app-nav-link" href="/Sales/ExportDailyReport">
+                                    <i class="fas fa-file-excel"></i><span>Daily Report</span>
+                                </a>
+                            </div>
+
+                            <div class="app-sidebar-section">
+                                <div class="app-sidebar-label">Inventory</div>
+                                <a class="app-nav-link @activeNav("Products")" href="/Products">
+                                    <i class="fas fa-box"></i><span>Products</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Categories")" href="/Categories">
+                                    <i class="fas fa-tags"></i><span>Categories</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Discounts")" href="/Discounts">
+                                    <i class="fas fa-percent"></i><span>Discounts</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Warehouses")" href="/Warehouses">
+                                    <i class="fas fa-warehouse"></i><span>Warehouses</span>
+                                </a>
+                                <a class="app-nav-link" href="/Warehouses/StockLedger">
+                                    <i class="fas fa-clipboard-list"></i><span>Stock Ledger</span>
+                                </a>
+                                <a class="app-nav-link" href="/Warehouses/StockCounts">
+                                    <i class="fas fa-clipboard-check"></i><span>Stock Counts</span>
+                                </a>
+                            </div>
+                        }
+
+                        @if (canUseErp)
+                        {
+                            <div class="app-sidebar-section">
+                                <div class="app-sidebar-label">Finance</div>
+                                <a class="app-nav-link @activeNav("Finance")" href="/Finance">
+                                    <i class="fas fa-chart-pie"></i><span>Finance</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Reports")" href="/Reports">
+                                    <i class="fas fa-chart-line"></i><span>Reports</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Accounting")" href="/Accounting">
+                                    <i class="fas fa-scale-balanced"></i><span>Accounting</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("FinancialAccounts")" href="/FinancialAccounts">
+                                    <i class="fas fa-building-columns"></i><span>Bank & Cash</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Obligations")" href="/Obligations">
+                                    <i class="fas fa-hand-holding-dollar"></i><span>Obligations</span>
+                                </a>
+                            </div>
+
+                            <div class="app-sidebar-section">
+                                <div class="app-sidebar-label">Operations</div>
+                                <a class="app-nav-link @activeNav("Purchasing")" href="/Purchasing">
+                                    <i class="fas fa-truck-ramp-box"></i><span>Purchasing</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("SupplierInvoices")" href="/SupplierInvoices">
+                                    <i class="fas fa-file-invoice-dollar"></i><span>Supplier Invoices</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Approvals")" href="/Approvals">
+                                    <i class="fas fa-user-check"></i><span>Approvals</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("OfflineSync")" href="/OfflineSync">
+                                    <i class="fas fa-cloud-upload-alt"></i><span>Offline Sync</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Notifications")" href="/Notifications">
+                                    <i class="fas fa-bell"></i><span>Notifications</span>
+                                </a>
+                            </div>
+                        }
+
+                        @if (isAdmin)
+                        {
+                            <div class="app-sidebar-section">
+                                <div class="app-sidebar-label">Control</div>
+                                <a class="app-nav-link @activeNav("Erp")" href="/Erp">
+                                    <i class="fas fa-sitemap"></i><span>ERP Core</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Users")" href="/Users">
+                                    <i class="fas fa-users"></i><span>Users</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Hr")" href="/Hr">
+                                    <i class="fas fa-users-gear"></i><span>HR & Payroll</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("Operations")" href="/Operations">
+                                    <i class="fas fa-store"></i><span>Operations</span>
+                                </a>
+                                <a class="app-nav-link @activeNav("AuditLogs")" href="/AuditLogs">
+                                    <i class="fas fa-clipboard-check"></i><span>Audit Logs</span>
+                                </a>
+                            </div>
+                        }
+                    }
+                </div>
+            </aside>
+
+            <main class="app-main">
+                <div class="app-content">
+                    @RenderBody()
+                </div>
+            </main>
+        </div>
+    }
+    else
+    {
+        <main class="auth-main container py-5" style="margin-top: 90px;">
+            @RenderBody()
+        </main>
+    }
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -131,7 +526,7 @@
 
     <footer class="text-center text-muted small">
         <div class="container">
-            <p class="mb-0">MiniPOS &copy; 2024 &bull; Built with ASP.NET Core & Bootswatch</p>
+            <p class="mb-0">@appTitle &copy; 2026 &bull; Built with ASP.NET Core</p>
         </div>
     </footer>
 

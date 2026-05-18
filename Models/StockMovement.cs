@@ -1,8 +1,13 @@
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+
 namespace WebApplication3.Models
 {
     public class StockMovement
     {
         public int Id { get; set; }
+        public int CompanyId { get; set; }
+        [ValidateNever]
+        public Company Company { get; set; } = null!;
         public int ProductId { get; set; }
         public string MovementType { get; set; } = string.Empty; // Sale, Restock, Adjustment, Return
         public int Quantity { get; set; }

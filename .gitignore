@@ -1,0 +1,41 @@
+# Build output
+bin/
+obj/
+Debug/
+Release/
+
+# User/local IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+server.out.log
+server.err.log
+run_log.txt
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Local environment/secrets
+.env
+appsettings.Development.json
+secrets.json
+
+# Generated/uploaded local assets
+wwwroot/images/company/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Project backups/local copies
+WebApplication3_Backup/

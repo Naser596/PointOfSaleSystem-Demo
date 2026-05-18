@@ -10,5 +10,7 @@ namespace WebApplication3.Services
         Task<Product> UpdateProductAsync(Product product);
         Task<bool> DeleteProductAsync(int id, string? username = null);
         Task<List<Product>> SearchProductsAsync(string searchTerm);
+        Task<List<Product>> GetProductsAsync(string? searchTerm = null, int? categoryId = null);
+        Task<Product?> GetProductByBarcodeAsync(string barcode);
     }
 }

@@ -1,0 +1,69 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build the project without apphost file locks
+    cmds:
+      - dotnet build .\WebApplication3.csproj -p:UseAppHost=false
+
+  run:
+    desc: Run locally on http://localhost:5088
+    cmds:
+      - dotnet run --project .\WebApplication3.csproj --no-launch-profile --urls http://localhost:5088
+
+  migrate:
+    desc: Apply EF Core migrations to the configured database
+    cmds:
+      - dotnet ef database update --project .\WebApplication3.csproj
+
+  migrate-postgres:
+    desc: Apply EF Core migrations to local Docker PostgreSQL
+    cmds:
+      - $env:ConnectionStrings__Postgres='Host=localhost;Port=5432;Database=pos_platform;Username=pos_user;Password=pos_password'; dotnet ef database update --project .\WebApplication3.csproj
+
+  docker-build:
+    desc: Build the Docker image
+    cmds:
+      - docker compose build
+
+  up:
+    desc: Start the app with PostgreSQL in Docker
+    cmds:
+      - docker compose up --build
+docker 
+  docker-up:
+    desc: Start the app with PostgreSQL in Docker, detached
+    cmds:
+      - docker compose up -d --build
+      - docker compose ps
+
+  up-postgres:
+    desc: Alias for starting app plus PostgreSQL
+    cmds:
+      - docker compose up --build
+
+  db:
+    desc: Start only PostgreSQL
+    cmds:
+      - docker compose up -d postgres
+
+  down:
+    desc: Stop Docker services
+    cmds:
+      - docker compose down
+
+  docker-down:
+    desc: Stop Docker services
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: Follow Docker logs
+    cmds:
+      - docker compose logs -f web
+
+  setup:
+    desc: First-time local setup check
+    cmds:
+      - dotnet restore .\WebApplication3.csproj
+      - task: build

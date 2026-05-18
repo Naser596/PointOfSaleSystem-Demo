@@ -1,3 +1,4 @@
 <Solution>
-  <Project Path="WebApplication3/WebApplication3.csproj" />
+  <Project Path="WebApplication3.csproj" />
+  <Project Path="WebApplication3.Tests/WebApplication3.Tests.csproj" />
 </Solution>
